@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AnimaSync — Real-time Audio-to-Blendshape Lip Sync</title>
-  <meta name="description" content="Browser-native lip sync engine. Rust/WASM converts audio to ARKit blendshapes at 30fps.">
+  <title>AnimaSync — Voice-driven 3D Avatar Animation Engine</title>
+  <meta name="description" content="Voice-driven avatar animation engine. Extracts emotion from speech to generate lip sync, facial expressions, and body motion — entirely in the browser.">
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -75,8 +75,8 @@
 
 <h1>Anima<span>Sync</span></h1>
 <p class="subtitle">
-  Real-time audio-to-blendshape lip sync engine for the browser.<br>
-  Rust/WASM &middot; ARKit-compatible &middot; 30fps &middot; No server needed.
+  Voice-driven 3D avatar animation engine for the browser.<br>
+  Lip sync &middot; Facial expressions &middot; Body motion &middot; All from audio alone.
 </p>
 
 <div class="badges">
@@ -89,25 +89,25 @@
   <div class="card">
     <div class="card-icon">📊</div>
     <h3>Basic</h3>
-    <p>Minimal example — audio file in, blendshape bars out. No 3D, no framework. Pure API demo.</p>
+    <p>Minimal example — audio in, animated expression data out. No 3D, no framework. See the raw animation data.</p>
     <a href="examples/vanilla-basic/">Try it &rarr;</a>
   </div>
   <div class="card">
     <div class="card-icon">🧑‍🎤</div>
     <h3>VRM Avatar</h3>
-    <p>Full 3D avatar with mic and file input. Three.js + VRM + bone animations + blendshape visualization.</p>
+    <p>Full 3D avatar — lip sync, emotional expressions, eye blinks, body motion. Mic and file input.</p>
     <a href="examples/vanilla-avatar/">Try it &rarr;</a>
   </div>
   <div class="card">
     <div class="card-icon">⚖️</div>
     <h3>V1 vs V2</h3>
-    <p>Side-by-side comparison. Same audio, two engines, two avatars. See the difference in real time.</p>
+    <p>Side-by-side comparison. Same voice, two animation engines, two avatars. See the difference live.</p>
     <a href="examples/vanilla-comparison/">Try it &rarr;</a>
   </div>
 </div>
 
 <div class="code-section">
-  <h2>3 lines to lip sync</h2>
+  <h2>3 lines to animate an avatar</h2>
   <div class="code-block">
 <span class="kw">import</span> { <span class="fn">LipSyncWasmWrapper</span> } <span class="kw">from</span> <span class="str">'@goodganglabs/lipsync-wasm-v2'</span>;
 

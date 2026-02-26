@@ -1,14 +1,15 @@
 # Vanilla Avatar
 
-Full 3D VRM avatar that lip-syncs to audio using AnimaSync V2. Supports file upload and real-time microphone streaming.
+Full 3D VRM avatar that comes alive from voice alone. Lip sync, emotional facial expressions, natural eye blinks, and body motion — all generated from a single audio stream via AnimaSync V2.
 
 ## What it demonstrates
 
-- Three.js + `@pixiv/three-vrm` avatar rendering
-- VRMA bone animation (idle pose crossfade)
-- Real-time mic streaming via `processAudioChunk()` + AudioWorklet
-- Batch file processing via `processFile()`
-- 52-dim ARKit blendshape application to VRM expressions
+- **Lip sync**: Mouth shapes driven by voice phonemes
+- **Facial expressions**: Brows, cheeks, and eye area respond to vocal characteristics
+- **Eye animation**: Natural stochastic blinks injected automatically
+- **Body motion**: VRMA bone animation (idle breathing ↔ speaking pose crossfade)
+- Real-time mic streaming + batch file processing
+- Three.js + `@pixiv/three-vrm` integration
 
 ## Run locally
 
@@ -28,6 +29,6 @@ Drop any `.vrm` file onto the canvas. Free CC0 avatars are available at:
 ## How it works
 
 1. Page loads → WASM + ONNX model initialized from CDN
-2. Drop a `.vrm` file → Three.js scene renders the avatar with idle bone animation
-3. Upload audio or click Microphone → blendshapes applied to VRM at 30fps
-4. Frame queue pattern: audio processing pushes frames, render loop consumes at 30fps
+2. Drop a `.vrm` file → Three.js scene renders the avatar with idle breathing animation
+3. Upload audio or click Microphone → engine generates lip sync + expressions + blinks
+4. All animation layers (face + body) applied to VRM at 30fps via frame queue

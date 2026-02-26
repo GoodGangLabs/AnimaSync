@@ -1,13 +1,13 @@
 # Vanilla Comparison
 
-V1 and V2 running side-by-side on the same audio input. Two VRM avatars, two engines, one shared microphone or file.
+V1 and V2 animation engines running side-by-side on the same voice input. Two VRM avatars, two engines, one shared microphone — compare how each generates lip sync, expressions, and body motion differently.
 
 ## What it demonstrates
 
 - Loading **both** `@goodganglabs/lipsync-wasm-v1` and `v2` from CDN simultaneously
 - Parallel initialization and inference
-- Dual Three.js canvases with independent VRM rendering
-- Shared AudioWorklet feeding both engines concurrently
+- Comparing animation quality: V1's phoneme-based expressions vs V2's direct prediction
+- Dual Three.js canvases with independent body pose animation
 - Performance comparison (WASM time, frame count, realtime factor)
 
 ## Run locally
@@ -32,5 +32,7 @@ python3 -m http.server 8080
 |---|---|---|
 | Output | 111-dim (more channels) | 52-dim (standard ARKit) |
 | Mouth crispness | Smoother (OneEuroFilter) | Snappier (crisp_mouth) |
-| Eye blinks | From IdleExpressionGenerator | Injected by post-processing |
+| Eye blinks | IdleExpressionGenerator (2.5–4.5s cycle) | Injected by post-processing |
+| Expression depth | Full 111-dim (brows, cheeks, tongue, etc.) | Standard 52-dim ARKit |
+| Body motion | VAD auto-switches idle ↔ speaking pose | Same VRMA crossfade |
 | Processing speed | Slightly slower (phoneme → viseme) | Faster (direct output) |
