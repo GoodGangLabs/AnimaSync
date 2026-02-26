@@ -80,7 +80,7 @@
     .bottom-panel {
       display: grid; grid-template-columns: 1fr 1fr; gap: 0;
       border-top: 1px solid rgba(255,255,255,0.06);
-      max-height: 200px; overflow-y: auto;
+      max-height: 360px; overflow-y: auto;
     }
     @media (max-width: 800px) { .bottom-panel { grid-template-columns: 1fr; } }
 
@@ -93,9 +93,9 @@
     .stat-val.v2 { color: #10b981; }
     .stat-lbl { font-size: 0.6rem; color: #475569; }
 
-    .bs-row-mini { display: flex; align-items: center; gap: 4px; margin: 2px 0; }
-    .bs-name-mini { width: 70px; font-size: 0.6rem; font-family: monospace; color: #475569; text-align: right; }
-    .bs-track-mini { flex: 1; height: 8px; background: rgba(255,255,255,0.03); border-radius: 2px; overflow: hidden; }
+    .bs-row-mini { display: flex; align-items: center; gap: 4px; margin: 1px 0; }
+    .bs-name-mini { width: 100px; font-size: 0.55rem; font-family: monospace; color: #475569; text-align: right; }
+    .bs-track-mini { flex: 1; height: 6px; background: rgba(255,255,255,0.03); border-radius: 2px; overflow: hidden; }
     .bs-fill-v1 { height: 100%; background: #f59e0b; width: 0%; transition: width 0.04s linear; border-radius: 2px; }
     .bs-fill-v2 { height: 100%; background: #10b981; width: 0%; transition: width 0.04s linear; border-radius: 2px; }
 
@@ -234,17 +234,14 @@ const ARKIT_52 = [
   'noseSneerLeft','noseSneerRight','tongueOut',
 ];
 
-const KEY_INDICES = [24, 31, 37, 33, 34, 43, 44, 39, 40, 8, 9, 2];
-const KEY_NAMES = KEY_INDICES.map(i => ARKIT_52[i]?.substring(0, 10) || `ch${i}`);
-
 // ================================================================
-// Build blendshape bars for each version
+// Build blendshape bars for each version — all 52 ARKit channels
 // ================================================================
 function buildBars(containerId, cssClass) {
   const container = document.getElementById(containerId);
-  return KEY_INDICES.map((idx, i) => {
+  return ARKIT_52.map((name, idx) => {
     const row = document.createElement('div'); row.className = 'bs-row-mini';
-    row.innerHTML = `<div class="bs-name-mini">${KEY_NAMES[i]}</div><div class="bs-track-mini"><div class="${cssClass}" id="${containerId}-${idx}"></div></div>`;
+    row.innerHTML = `<div class="bs-name-mini">${name}</div><div class="bs-track-mini"><div class="${cssClass}" id="${containerId}-${idx}"></div></div>`;
     container.appendChild(row);
     return { idx, el: null };
   });
