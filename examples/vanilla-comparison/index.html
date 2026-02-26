@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AnimaSync — V1 vs V2 Animation Engine Comparison</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>">
   <script type="importmap">
   { "imports": {
     "three": "https://cdn.jsdelivr.net/npm/three@0.179.1/build/three.module.js",
@@ -434,7 +435,17 @@ async function initEngines() {
 
 initEngines().catch(err => {
   console.error('Init error:', err);
-  document.getElementById('init-overlay').innerHTML = `<div style="color:#ef4444;text-align:center"><h3>Initialization Error</h3><p style="font-size:0.85rem;margin-top:8px">${err.message}</p></div>`;
+  const overlay = document.getElementById('init-overlay');
+  overlay.textContent = '';
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'color:#ef4444;text-align:center';
+  const h = document.createElement('h3');
+  h.textContent = 'Initialization Error';
+  const p = document.createElement('p');
+  p.style.cssText = 'font-size:0.85rem;margin-top:8px';
+  p.textContent = err.message;
+  wrap.append(h, p);
+  overlay.appendChild(wrap);
 });
 
 // ================================================================

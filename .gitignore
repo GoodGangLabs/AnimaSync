@@ -5,3 +5,10 @@ test-results/
 .env
 .env.local
 *.vrm
+
+# Security: belt-and-suspenders (should never exist here, but just in case)
+*.onnx
+*.enc
+*.pem
+model_key.rs
+licenses.db
