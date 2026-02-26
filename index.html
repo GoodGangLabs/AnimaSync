@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AnimaSync — Voice-driven 3D Avatar Animation Engine</title>
+  <meta name="description" content="Voice-driven avatar animation engine. Extracts emotion from speech to generate lip sync, facial expressions, and body motion — entirely in the browser.">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #0f0f1a; color: #e2e8f0; min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 60px 24px 40px;
+    }
+
+    h1 { font-size: 2.8rem; font-weight: 800; letter-spacing: -0.03em; }
+    h1 span { color: #4cc9f0; }
+    .subtitle { color: #64748b; font-size: 1.05rem; margin-top: 12px; text-align: center; max-width: 500px; line-height: 1.6; }
+
+    .badges { display: flex; gap: 10px; margin-top: 24px; flex-wrap: wrap; justify-content: center; }
+    .badges a {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
+      text-decoration: none; transition: all 0.2s; border: 1px solid rgba(255,255,255,0.06);
+    }
+    .badges a:hover { border-color: rgba(76,201,240,0.3); transform: translateY(-1px); }
+    .badge-npm { background: rgba(203,56,55,0.1); color: #ef4444; }
+    .badge-gh { background: rgba(255,255,255,0.04); color: #94a3b8; }
+
+    /* ── Examples grid ── */
+    .examples { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 48px; max-width: 900px; width: 100%; }
+    @media (max-width: 700px) { .examples { grid-template-columns: 1fr; } }
+
+    .card {
+      background: #16213e; border-radius: 14px; padding: 28px;
+      border: 1px solid rgba(255,255,255,0.04); transition: all 0.2s;
+      display: flex; flex-direction: column;
+    }
+    .card:hover { border-color: rgba(76,201,240,0.2); transform: translateY(-2px); }
+
+    .card-icon { font-size: 2rem; margin-bottom: 14px; }
+    .card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+    .card p { font-size: 0.8rem; color: #64748b; line-height: 1.6; flex: 1; }
+
+    .card a {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 16px; padding: 8px 16px; border-radius: 8px;
+      background: rgba(76,201,240,0.08); color: #4cc9f0;
+      font-size: 0.8rem; font-weight: 600; text-decoration: none;
+      transition: all 0.15s; border: 1px solid rgba(76,201,240,0.15);
+    }
+    .card a:hover { background: rgba(76,201,240,0.15); }
+
+    /* ── Code preview ── */
+    .code-section { margin-top: 48px; max-width: 600px; width: 100%; text-align: center; }
+    .code-section h2 { font-size: 1.1rem; color: #94a3b8; margin-bottom: 16px; }
+    .code-block {
+      background: #16213e; border-radius: 12px; padding: 24px; text-align: left;
+      font-family: 'JetBrains Mono', monospace; font-size: 0.82rem;
+      line-height: 1.7; color: #94a3b8; overflow-x: auto;
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+    .code-block .kw { color: #7c3aed; }
+    .code-block .fn { color: #4cc9f0; }
+    .code-block .str { color: #10b981; }
+    .code-block .cm { color: #475569; }
+
+    /* ── Footer ── */
+    footer { margin-top: 60px; text-align: center; font-size: 0.75rem; color: #334155; }
+    footer a { color: #4cc9f0; text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<h1>Anima<span>Sync</span></h1>
+<p class="subtitle">
+  Voice-driven 3D avatar animation engine for the browser.<br>
+  Lip sync &middot; Facial expressions &middot; Body motion &middot; All from audio alone.
+</p>
+
+<div class="badges">
+  <a class="badge-npm" href="https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v2">npm V2</a>
+  <a class="badge-npm" href="https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v1">npm V1</a>
+  <a class="badge-gh" href="https://github.com/goodganglabs/AnimaSync">GitHub</a>
+</div>
+
+<div class="examples">
+  <div class="card">
+    <div class="card-icon">🔊</div>
+    <h3>V1 Data</h3>
+    <p>V1 phoneme engine — 111-dim output mapped to 52 ARKit blendshapes, ONNX inference, real-time visualization.</p>
+    <a href="examples/vanilla-basic/">Try it &rarr;</a>
+  </div>
+  <div class="card">
+    <div class="card-icon">🧑‍🎤</div>
+    <h3>V2 Data</h3>
+    <p>V2 student model — 52 ARKit blendshapes direct prediction, crisp mouth, real-time visualization.</p>
+    <a href="examples/vanilla-avatar/">Try it &rarr;</a>
+  </div>
+  <div class="card">
+    <div class="card-icon">⚖️</div>
+    <h3>V1 vs V2</h3>
+    <p>Side-by-side comparison. Same voice, two animation engines, two avatars. See the difference live.</p>
+    <a href="examples/vanilla-comparison/">Try it &rarr;</a>
+  </div>
+</div>
+
+<div class="code-section">
+  <h2>3 lines to animate an avatar</h2>
+  <div class="code-block">
+<span class="kw">import</span> { <span class="fn">LipSyncWasmWrapper</span> } <span class="kw">from</span> <span class="str">'@goodganglabs/lipsync-wasm-v2'</span>;
+
+<span class="kw">const</span> lipsync = <span class="kw">new</span> <span class="fn">LipSyncWasmWrapper</span>();
+<span class="kw">await</span> lipsync.<span class="fn">init</span>();  <span class="cm">// 30-day free trial</span>
+
+<span class="kw">const</span> result = <span class="kw">await</span> lipsync.<span class="fn">processFile</span>(audioFile);
+<span class="kw">const</span> frame = lipsync.<span class="fn">getFrame</span>(result, 0); <span class="cm">// number[52]</span>
+  </div>
+</div>
+
+<footer>
+  Built by <a href="https://goodganglabs.com">GoodGang Labs</a>
+</footer>
+
+</body>
+</html>

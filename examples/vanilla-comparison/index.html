@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AnimaSync — V1 vs V2 Animation Engine Comparison</title>
+  <script type="importmap">
+  { "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.179.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.179.1/examples/jsm/",
+    "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.4.5/lib/three-vrm.module.min.js",
+    "@pixiv/three-vrm-animation": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm-animation@3.4.5/lib/three-vrm-animation.module.min.js"
+  }}
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/ort.min.js"></script>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #0f0f1a; color: #e2e8f0; min-height: 100vh;
+      display: flex; flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      padding: 16px 24px; border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    header h1 { font-size: 1.15rem; font-weight: 700; }
+    header h1 span { color: #4cc9f0; }
+    .badges { display: flex; gap: 6px; }
+    .badge {
+      padding: 3px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 600;
+    }
+    .badge-v1 { background: rgba(245,158,11,0.12); color: #f59e0b; }
+    .badge-v2 { background: rgba(16,185,129,0.12); color: #10b981; }
+    .badge-loading { background: rgba(100,100,100,0.2); color: #64748b; }
+    .header-controls {
+      margin-left: auto; display: flex; gap: 8px; align-items: center;
+    }
+    .header-controls label, .header-controls button {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);
+      background: #16213e; color: #e2e8f0; font-size: 0.8rem;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .header-controls button:hover, .header-controls label:hover {
+      border-color: rgba(76,201,240,0.3);
+    }
+    .header-controls button.active { border-color: #4cc9f0; background: rgba(76,201,240,0.08); }
+    .header-controls button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* ── Dual Canvas Grid ── */
+    .dual-grid { display: grid; grid-template-columns: 1fr 1fr; flex: 1; overflow: hidden; }
+    @media (max-width: 800px) { .dual-grid { grid-template-columns: 1fr; } }
+
+    .pane { position: relative; display: flex; flex-direction: column; }
+    .pane:first-child { border-right: 1px solid rgba(255,255,255,0.04); }
+
+    .pane-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .pane-title { font-size: 0.85rem; font-weight: 600; }
+    .pane-title.v1 { color: #f59e0b; }
+    .pane-title.v2 { color: #10b981; }
+    .pane-dim { font-size: 0.7rem; color: #475569; }
+
+    .canvas-wrap { flex: 1; position: relative; }
+    canvas { width: 100%; height: 100%; display: block; }
+
+    .vrm-drop {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: rgba(15,15,26,0.92); z-index: 5; font-size: 0.85rem; color: #475569;
+    }
+    .vrm-drop.hidden { display: none; }
+    .vrm-drop a { color: #4cc9f0; text-decoration: none; }
+
+    /* ── Bottom panel ── */
+    .bottom-panel {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      max-height: 360px; overflow-y: auto;
+    }
+    @media (max-width: 800px) { .bottom-panel { grid-template-columns: 1fr; } }
+
+    .stats-col { padding: 12px 16px; }
+    .stats-col:first-child { border-right: 1px solid rgba(255,255,255,0.04); }
+    .stats-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+    .stat { text-align: center; }
+    .stat-val { font-size: 1rem; font-weight: 700; }
+    .stat-val.v1 { color: #f59e0b; }
+    .stat-val.v2 { color: #10b981; }
+    .stat-lbl { font-size: 0.6rem; color: #475569; }
+
+    .bs-row-mini { display: flex; align-items: center; gap: 4px; margin: 1px 0; }
+    .bs-name-mini { width: 100px; font-size: 0.55rem; font-family: monospace; color: #475569; text-align: right; }
+    .bs-track-mini { flex: 1; height: 6px; background: rgba(255,255,255,0.03); border-radius: 2px; overflow: hidden; }
+    .bs-fill-v1 { height: 100%; background: #f59e0b; width: 0%; transition: width 0.04s linear; border-radius: 2px; }
+    .bs-fill-v2 { height: 100%; background: #10b981; width: 0%; transition: width 0.04s linear; border-radius: 2px; }
+
+    /* ── Init overlay ── */
+    .init-overlay {
+      position: fixed; inset: 0; background: rgba(15,15,26,0.95);
+      display: flex; align-items: center; justify-content: center; z-index: 100;
+      flex-direction: column; gap: 16px;
+    }
+    .init-overlay.hidden { display: none; }
+    .init-status { font-size: 0.9rem; color: #94a3b8; }
+    .init-bar { width: 300px; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+    .init-bar-fill { height: 100%; width: 0%; transition: width 0.3s; }
+    .init-bar-fill.v1 { background: #f59e0b; }
+    .init-bar-fill.v2 { background: #10b981; }
+
+    footer {
+      padding: 10px 24px; text-align: center; font-size: 0.65rem; color: #1e293b;
+      border-top: 1px solid rgba(255,255,255,0.04);
+    }
+    footer a { color: #4cc9f0; text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<!-- Init overlay -->
+<div class="init-overlay" id="init-overlay">
+  <h2 style="color:#e2e8f0;font-size:1.1rem">Initializing AnimaSync</h2>
+  <div style="display:flex;gap:24px;">
+    <div style="text-align:center">
+      <div class="init-bar"><div class="init-bar-fill v1" id="init-v1-fill"></div></div>
+      <div style="font-size:0.7rem;color:#f59e0b;margin-top:4px" id="init-v1-label">V1 — waiting</div>
+    </div>
+    <div style="text-align:center">
+      <div class="init-bar"><div class="init-bar-fill v2" id="init-v2-fill"></div></div>
+      <div style="font-size:0.7rem;color:#10b981;margin-top:4px" id="init-v2-label">V2 — waiting</div>
+    </div>
+  </div>
+</div>
+
+<header>
+  <h1>Anima<span>Sync</span></h1>
+  <div class="badges">
+    <div class="badge badge-v1" id="badge-v1">V1 loading</div>
+    <div class="badge badge-v2" id="badge-v2">V2 loading</div>
+  </div>
+  <div class="header-controls">
+    <label style="cursor:pointer">
+      <span>📁</span> Audio
+      <input type="file" id="audio-input" accept="audio/*" style="display:none">
+    </label>
+    <button id="mic-btn" disabled><span>🎤</span> Mic</button>
+  </div>
+</header>
+
+<div class="dual-grid">
+  <div class="pane">
+    <div class="pane-header">
+      <span class="pane-title v1">V1 — Phoneme Model</span>
+      <span class="pane-dim">111-dim ARKit</span>
+    </div>
+    <div class="canvas-wrap">
+      <canvas id="canvas-v1"></canvas>
+      <div class="vrm-drop" id="vrm-drop-v1">
+        Drop .vrm — <a href="https://hub.vroid.com/en/models?characterization=allow" target="_blank">Free VRMs</a>
+      </div>
+    </div>
+  </div>
+  <div class="pane">
+    <div class="pane-header">
+      <span class="pane-title v2">V2 — Student Model</span>
+      <span class="pane-dim">52-dim ARKit</span>
+    </div>
+    <div class="canvas-wrap">
+      <canvas id="canvas-v2"></canvas>
+      <div class="vrm-drop" id="vrm-drop-v2">
+        Drop .vrm (shared with V1)
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="bottom-panel">
+  <div class="stats-col">
+    <div class="stats-row">
+      <div class="stat"><div class="stat-val v1" id="s-v1-frames">—</div><div class="stat-lbl">Frames</div></div>
+      <div class="stat"><div class="stat-val v1" id="s-v1-wasm">—</div><div class="stat-lbl">WASM</div></div>
+      <div class="stat"><div class="stat-val v1" id="s-v1-rtf">—</div><div class="stat-lbl">RT Factor</div></div>
+    </div>
+    <div id="bs-v1"></div>
+  </div>
+  <div class="stats-col">
+    <div class="stats-row">
+      <div class="stat"><div class="stat-val v2" id="s-v2-frames">—</div><div class="stat-lbl">Frames</div></div>
+      <div class="stat"><div class="stat-val v2" id="s-v2-wasm">—</div><div class="stat-lbl">WASM</div></div>
+      <div class="stat"><div class="stat-val v2" id="s-v2-rtf">—</div><div class="stat-lbl">RT Factor</div></div>
+    </div>
+    <div id="bs-v2"></div>
+  </div>
+</div>
+
+<footer>
+  <a href="https://github.com/goodganglabs/AnimaSync">AnimaSync</a> —
+  <a href="https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v1">V1</a> vs
+  <a href="https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v2">V2</a> side-by-side
+</footer>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { VRMLoaderPlugin } from '@pixiv/three-vrm';
+import { VRMAnimationLoaderPlugin, createVRMAnimationClip } from '@pixiv/three-vrm-animation';
+
+// ================================================================
+// Config
+// ================================================================
+const VERSION = '0.3.9';
+const CDN_V1 = `https://cdn.jsdelivr.net/npm/@goodganglabs/lipsync-wasm-v1@${VERSION}`;
+const CDN_V2 = `https://cdn.jsdelivr.net/npm/@goodganglabs/lipsync-wasm-v2@${VERSION}`;
+
+const ARKIT_52 = [
+  'browDownLeft','browDownRight','browInnerUp','browOuterUpLeft','browOuterUpRight',
+  'cheekPuff','cheekSquintLeft','cheekSquintRight',
+  'eyeBlinkLeft','eyeBlinkRight','eyeLookDownLeft','eyeLookDownRight',
+  'eyeLookInLeft','eyeLookInRight','eyeLookOutLeft','eyeLookOutRight',
+  'eyeLookUpLeft','eyeLookUpRight','eyeSquintLeft','eyeSquintRight',
+  'eyeWideLeft','eyeWideRight',
+  'jawForward','jawLeft','jawOpen','jawRight',
+  'mouthClose','mouthDimpleLeft','mouthDimpleRight','mouthFrownLeft','mouthFrownRight',
+  'mouthFunnel','mouthLeft','mouthLowerDownLeft','mouthLowerDownRight',
+  'mouthPressLeft','mouthPressRight','mouthPucker','mouthRight',
+  'mouthRollLower','mouthRollUpper','mouthShrugLower','mouthShrugUpper',
+  'mouthSmileLeft','mouthSmileRight','mouthStretchLeft','mouthStretchRight',
+  'mouthUpperUpLeft','mouthUpperUpRight',
+  'noseSneerLeft','noseSneerRight','tongueOut',
+];
+
+// ================================================================
+// Build blendshape bars for each version — all 52 ARKit channels
+// ================================================================
+function buildBars(containerId, cssClass) {
+  const container = document.getElementById(containerId);
+  return ARKIT_52.map((name, idx) => {
+    const row = document.createElement('div'); row.className = 'bs-row-mini';
+    row.innerHTML = `<div class="bs-name-mini">${name}</div><div class="bs-track-mini"><div class="${cssClass}" id="${containerId}-${idx}"></div></div>`;
+    container.appendChild(row);
+    return { idx, el: null };
+  });
+}
+const barsV1 = buildBars('bs-v1', 'bs-fill-v1');
+const barsV2 = buildBars('bs-v2', 'bs-fill-v2');
+barsV1.forEach(b => b.el = document.getElementById(`bs-v1-${b.idx}`));
+barsV2.forEach(b => b.el = document.getElementById(`bs-v2-${b.idx}`));
+
+function updateBars(bars, frame) {
+  for (const b of bars) {
+    b.el.style.width = Math.min((frame[b.idx] || 0) * 100, 100) + '%';
+  }
+}
+
+// ================================================================
+// Create Three.js scene
+// ================================================================
+function createScene(canvasId) {
+  const canvas = document.getElementById(canvasId);
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0f0f1a);
+  const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
+  camera.position.set(0, 1.25, 1.5);
+
+  const controls = new OrbitControls(camera, canvas);
+  controls.target.set(0, 1.25, 0);
+  controls.enableDamping = true;
+  controls.update();
+
+  scene.add(new THREE.DirectionalLight(0xffffff, 1.0));
+  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+
+  function resize() {
+    const w = canvas.parentElement.clientWidth;
+    const h = canvas.parentElement.clientHeight;
+    if (w > 0 && h > 0) {
+      renderer.setSize(w, h);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+  }
+  new ResizeObserver(resize).observe(canvas.parentElement);
+  resize();
+
+  return { renderer, scene, camera, controls, canvas };
+}
+
+const sceneV1 = createScene('canvas-v1');
+const sceneV2 = createScene('canvas-v2');
+
+// ================================================================
+// VRM Loading (shared across both scenes)
+// ================================================================
+const gltfLoader = new GLTFLoader();
+gltfLoader.register(p => new VRMLoaderPlugin(p));
+gltfLoader.register(p => new VRMAnimationLoaderPlugin(p));
+
+let vrmV1 = null, vrmV2 = null;
+let mixerV1 = null, mixerV2 = null;
+let idleActionV1 = null, speakingActionV1 = null;
+let idleActionV2 = null, speakingActionV2 = null;
+let isSpeaking = false;
+let crossFadeProgress = 0;
+
+async function loadVRMAFromBytes(bytes) {
+  const blob = new Blob([bytes], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const gltf = await gltfLoader.loadAsync(url);
+  URL.revokeObjectURL(url);
+  return gltf.userData.vrmAnimations?.[0] || null;
+}
+
+async function loadVRMIntoScene(url, sceneObj, lipsyncInstance) {
+  const gltf = await gltfLoader.loadAsync(url);
+  const vrm = gltf.userData.vrm;
+  sceneObj.scene.add(vrm.scene);
+  vrm.scene.rotation.y = Math.PI;
+
+  const mixer = new THREE.AnimationMixer(vrm.scene);
+  let idleAct = null, speakAct = null;
+
+  try {
+    const vrmaBytes = lipsyncInstance.getVrmaBytes();
+    if (vrmaBytes?.idle?.length) {
+      const anim = await loadVRMAFromBytes(vrmaBytes.idle);
+      if (anim) { idleAct = mixer.clipAction(createVRMAnimationClip(anim, vrm)); idleAct.play(); }
+    }
+    if (vrmaBytes?.speaking?.length) {
+      const anim = await loadVRMAFromBytes(vrmaBytes.speaking);
+      if (anim) { speakAct = mixer.clipAction(createVRMAnimationClip(anim, vrm)); speakAct.play(); speakAct.setEffectiveWeight(0); }
+    }
+  } catch (e) { console.warn('VRMA skip:', e.message); }
+
+  return { vrm, mixer, idleAction: idleAct, speakingAction: speakAct };
+}
+
+function transitionToSpeaking() { isSpeaking = true; crossFadeProgress = 1; }
+function transitionToIdle() { isSpeaking = false; }
+
+function updateBoneWeights(delta) {
+  const speed = 3.0;
+  if (isSpeaking && crossFadeProgress < 1) crossFadeProgress = Math.min(1, crossFadeProgress + delta * speed);
+  else if (!isSpeaking && crossFadeProgress > 0) crossFadeProgress = Math.max(0, crossFadeProgress - delta * speed);
+  const t = crossFadeProgress;
+  const w = t * t * (3 - 2 * t);
+  if (idleActionV1) idleActionV1.setEffectiveWeight(1 - w);
+  if (speakingActionV1) speakingActionV1.setEffectiveWeight(w);
+  if (idleActionV2) idleActionV2.setEffectiveWeight(1 - w);
+  if (speakingActionV2) speakingActionV2.setEffectiveWeight(w);
+}
+
+function resetVRM(vrm) {
+  if (!vrm?.expressionManager) return;
+  for (const name of ARKIT_52) vrm.expressionManager.setValue(name, 0);
+}
+
+// VRM drop handler (drops onto either pane, loads into both)
+for (const id of ['vrm-drop-v1', 'vrm-drop-v2']) {
+  const el = document.getElementById(id);
+  const parent = el.parentElement;
+  parent.addEventListener('dragover', e => e.preventDefault());
+  parent.addEventListener('drop', async e => {
+    e.preventDefault();
+    const file = [...e.dataTransfer.files].find(f => f.name.endsWith('.vrm'));
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+
+    // Load into both scenes
+    if (lsV1?.ready) {
+      if (vrmV1) sceneV1.scene.remove(vrmV1.scene);
+      const r = await loadVRMIntoScene(url, sceneV1, lsV1);
+      vrmV1 = r.vrm; mixerV1 = r.mixer; idleActionV1 = r.idleAction; speakingActionV1 = r.speakingAction;
+      document.getElementById('vrm-drop-v1').classList.add('hidden');
+    }
+    if (lsV2?.ready) {
+      if (vrmV2) sceneV2.scene.remove(vrmV2.scene);
+      const r = await loadVRMIntoScene(url, sceneV2, lsV2);
+      vrmV2 = r.vrm; mixerV2 = r.mixer; idleActionV2 = r.idleAction; speakingActionV2 = r.speakingAction;
+      document.getElementById('vrm-drop-v2').classList.add('hidden');
+    }
+  });
+}
+
+// ================================================================
+// Initialize both engines
+// ================================================================
+let lsV1 = null, lsV2 = null;
+const queueV1 = [], queueV2 = [];
+
+async function initEngines() {
+  const overlay = document.getElementById('init-overlay');
+
+  // Load both in parallel
+  const [v1Mod, v2Mod] = await Promise.all([
+    import(`${CDN_V1}/lipsync-wasm-wrapper.js`),
+    import(`${CDN_V2}/lipsync-wasm-wrapper.js`),
+  ]);
+
+  lsV1 = new v1Mod.LipSyncWasmWrapper({ wasmPath: `${CDN_V1}/lipsync_wasm_v1.js` });
+  lsV2 = new v2Mod.LipSyncWasmWrapper({ wasmPath: `${CDN_V2}/lipsync_wasm_v2.js` });
+
+  // Init both in parallel
+  await Promise.all([
+    lsV1.init({
+      onProgress: (stage, pct) => {
+        document.getElementById('init-v1-fill').style.width = pct + '%';
+        document.getElementById('init-v1-label').textContent = `V1 — ${stage} ${pct}%`;
+      },
+    }).then(() => {
+      document.getElementById('badge-v1').textContent = 'V1 Ready';
+    }),
+    lsV2.init({
+      onProgress: (stage, pct) => {
+        document.getElementById('init-v2-fill').style.width = pct + '%';
+        document.getElementById('init-v2-label').textContent = `V2 — ${stage} ${pct}%`;
+      },
+    }).then(() => {
+      document.getElementById('badge-v2').textContent = 'V2 Ready';
+    }),
+  ]);
+
+  overlay.classList.add('hidden');
+  document.getElementById('mic-btn').disabled = false;
+}
+
+initEngines().catch(err => {
+  console.error('Init error:', err);
+  document.getElementById('init-overlay').innerHTML = `<div style="color:#ef4444;text-align:center"><h3>Initialization Error</h3><p style="font-size:0.85rem;margin-top:8px">${err.message}</p></div>`;
+});
+
+// ================================================================
+// Audio File — process through both engines
+// ================================================================
+document.getElementById('audio-input').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file || !lsV1?.ready || !lsV2?.ready) return;
+
+  // Process V1
+  const t1 = performance.now();
+  const r1 = await lsV1.processFile(file);
+  const e1 = performance.now() - t1;
+  const dur1 = r1.frame_count / r1.fps;
+  document.getElementById('s-v1-frames').textContent = r1.frame_count;
+  document.getElementById('s-v1-wasm').textContent = (e1/1000).toFixed(2)+'s';
+  document.getElementById('s-v1-rtf').textContent = (e1/1000/dur1).toFixed(2)+'x';
+
+  // Process V2
+  const t2 = performance.now();
+  const r2 = await lsV2.processFile(file);
+  const e2 = performance.now() - t2;
+  const dur2 = r2.frame_count / r2.fps;
+  document.getElementById('s-v2-frames').textContent = r2.frame_count;
+  document.getElementById('s-v2-wasm').textContent = (e2/1000).toFixed(2)+'s';
+  document.getElementById('s-v2-rtf').textContent = (e2/1000/dur2).toFixed(2)+'x';
+
+  // Queue frames
+  queueV1.length = 0; queueV2.length = 0;
+  for (let i = 0; i < r1.frame_count; i++) queueV1.push(lsV1.getFrame(r1, i));
+  for (let i = 0; i < r2.frame_count; i++) queueV2.push(lsV2.getFrame(r2, i));
+
+  transitionToSpeaking();
+
+  // Play audio
+  const audioCtx = new AudioContext();
+  const buf = await file.arrayBuffer();
+  const audioBuf = await audioCtx.decodeAudioData(buf);
+  const src = audioCtx.createBufferSource();
+  src.buffer = audioBuf; src.connect(audioCtx.destination); src.start();
+  src.onended = () => { transitionToIdle(); resetVRM(vrmV1); resetVRM(vrmV2); };
+});
+
+// ================================================================
+// Microphone Streaming
+// ================================================================
+let micActive = false, audioCtx = null, worklet = null;
+const micBtn = document.getElementById('mic-btn');
+
+micBtn.addEventListener('click', async () => {
+  if (micActive) {
+    if (worklet) { worklet.disconnect(); worklet = null; }
+    if (audioCtx) { audioCtx.close(); audioCtx = null; }
+    micActive = false;
+    micBtn.classList.remove('active');
+    micBtn.innerHTML = '<span>🎤</span> Mic';
+    transitionToIdle();
+    lsV1.reset(); lsV2.reset();
+    return;
+  }
+  if (!lsV1?.ready || !lsV2?.ready) return;
+
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  audioCtx = new AudioContext({ sampleRate: 16000 });
+  const source = audioCtx.createMediaStreamSource(stream);
+
+  const code = `
+    class P extends AudioWorkletProcessor {
+      constructor() { super(); this._b = []; }
+      process(inputs) {
+        const c = inputs[0]?.[0];
+        if (c) { for (let i=0;i<c.length;i++) this._b.push(c[i]); if(this._b.length>=1600){this.port.postMessage(new Float32Array(this._b.splice(0,1600)));} }
+        return true;
+      }
+    }
+    registerProcessor('pcm-cap', P);
+  `;
+  const blob = new Blob([code], { type: 'application/javascript' });
+  const burl = URL.createObjectURL(blob);
+  await audioCtx.audioWorklet.addModule(burl);
+  URL.revokeObjectURL(burl);
+
+  worklet = new AudioWorkletNode(audioCtx, 'pcm-cap');
+  source.connect(worklet);
+
+  transitionToSpeaking();
+
+  worklet.port.onmessage = async e => {
+    const chunk = e.data;
+    const [r1, r2] = await Promise.all([
+      lsV1.processAudioChunk(chunk),
+      lsV2.processAudioChunk(chunk),
+    ]);
+    if (r1) for (let i = 0; i < r1.frame_count; i++) queueV1.push(lsV1.getFrame(r1, i));
+    if (r2) for (let i = 0; i < r2.frame_count; i++) queueV2.push(lsV2.getFrame(r2, i));
+  };
+
+  micActive = true;
+  micBtn.classList.add('active');
+  micBtn.innerHTML = '<span>⏹️</span> Stop';
+});
+
+// ================================================================
+// Apply blendshapes
+// ================================================================
+function applyToVRM(vrm, frame) {
+  if (!vrm?.expressionManager) return;
+  for (let i = 0; i < Math.min(frame.length, ARKIT_52.length); i++) {
+    vrm.expressionManager.setValue(ARKIT_52[i], frame[i]);
+  }
+}
+
+// ================================================================
+// Render Loop
+// ================================================================
+const clock = new THREE.Clock();
+let ft = 0;
+const FI = 1/30;
+
+function render() {
+  requestAnimationFrame(render);
+  const dt = clock.getDelta();
+  ft += dt;
+
+  if (ft >= FI) {
+    if (queueV1.length > 0) { const f = queueV1.shift(); applyToVRM(vrmV1, f); updateBars(barsV1, f); }
+    if (queueV2.length > 0) { const f = queueV2.shift(); applyToVRM(vrmV2, f); updateBars(barsV2, f); }
+    ft = 0;
+  }
+
+  updateBoneWeights(dt);
+  if (vrmV1) vrmV1.update(dt);
+  if (vrmV2) vrmV2.update(dt);
+  if (mixerV1) mixerV1.update(dt);
+  if (mixerV2) mixerV2.update(dt);
+
+  sceneV1.controls.update();
+  sceneV2.controls.update();
+  sceneV1.renderer.render(sceneV1.scene, sceneV1.camera);
+  sceneV2.renderer.render(sceneV2.scene, sceneV2.camera);
+}
+render();
+</script>
+</body>
+</html>

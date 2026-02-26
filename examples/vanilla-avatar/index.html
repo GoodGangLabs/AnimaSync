@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AnimaSync — V2: Student Model Animation Data (52-dim)</title>
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/ort.min.js"></script>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #0f0f1a; color: #e2e8f0; min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 20px 28px; border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    header h1 { font-size: 1.25rem; font-weight: 700; }
+    header h1 span { color: #4cc9f0; }
+    .badge {
+      display: inline-block; padding: 3px 10px; border-radius: 20px;
+      font-size: 0.7rem; font-weight: 600;
+      background: rgba(16,185,129,0.12); color: #10b981;
+    }
+    .badge-loading { background: rgba(245,158,11,0.12); color: #f59e0b; }
+
+    /* ── Main layout ── */
+    main { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 24px 28px; }
+    @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+
+    /* ── Cards ── */
+    .card {
+      background: #16213e; border-radius: 12px; padding: 24px;
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+    .card h2 { font-size: 0.85rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; }
+
+    /* ── Drop zone ── */
+    .drop-zone {
+      border: 2px dashed rgba(76,201,240,0.2); border-radius: 10px;
+      padding: 40px 20px; text-align: center; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: #4cc9f0; background: rgba(76,201,240,0.04);
+    }
+    .drop-zone p { color: #64748b; font-size: 0.9rem; }
+    .drop-zone p strong { color: #94a3b8; }
+    .drop-zone input { display: none; }
+
+    /* ── Progress ── */
+    .progress-wrap { margin-top: 16px; display: none; }
+    .progress-wrap.active { display: block; }
+    .progress-bar {
+      width: 100%; height: 6px; background: rgba(255,255,255,0.06);
+      border-radius: 3px; overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%; background: linear-gradient(90deg, #10b981, #4cc9f0);
+      width: 0%; transition: width 0.3s;
+    }
+    .progress-label { font-size: 0.75rem; color: #64748b; margin-top: 6px; }
+
+    /* ── Metrics ── */
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
+    .metric {
+      text-align: center; padding: 12px; border-radius: 8px;
+      background: rgba(255,255,255,0.02);
+    }
+    .metric-value { font-size: 1.4rem; font-weight: 700; color: #4cc9f0; }
+    .metric-label { font-size: 0.7rem; color: #64748b; margin-top: 2px; }
+
+    /* ── Blendshape bars ── */
+    .bs-grid { display: flex; flex-direction: column; gap: 3px; }
+    .bs-row { display: flex; align-items: center; gap: 6px; }
+    .bs-name { width: 120px; font-size: 0.65rem; font-family: 'JetBrains Mono', monospace; color: #64748b; text-align: right; flex-shrink: 0; }
+    .bs-track { flex: 1; height: 12px; background: rgba(255,255,255,0.03); border-radius: 3px; overflow: hidden; position: relative; }
+    .bs-fill { height: 100%; border-radius: 3px; transition: width 0.05s linear; width: 0%; }
+    .bs-val { width: 36px; font-size: 0.65rem; font-family: monospace; color: #475569; text-align: right; }
+
+    /* Color groups */
+    .bs-fill.jaw { background: linear-gradient(90deg, #4cc9f0, #22d3ee); }
+    .bs-fill.mouth { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
+    .bs-fill.eye { background: linear-gradient(90deg, #10b981, #34d399); }
+    .bs-fill.brow { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .bs-fill.cheek { background: linear-gradient(90deg, #f72585, #fb7185); }
+    .bs-fill.nose { background: linear-gradient(90deg, #06b6d4, #67e8f9); }
+
+    /* ── Playback ── */
+    .playback { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
+    .playback button {
+      padding: 8px 20px; border: none; border-radius: 8px; cursor: pointer;
+      font-weight: 600; font-size: 0.85rem; transition: all 0.15s;
+    }
+    .btn-play { background: #10b981; color: #0f0f1a; }
+    .btn-play:hover { background: #34d399; }
+    .btn-play:disabled { opacity: 0.3; cursor: not-allowed; }
+    .time-label { font-size: 0.8rem; color: #64748b; font-family: monospace; }
+
+    /* ── Footer ── */
+    footer {
+      padding: 16px 28px; text-align: center; font-size: 0.75rem; color: #334155;
+      border-top: 1px solid rgba(255,255,255,0.04);
+    }
+    footer a { color: #4cc9f0; text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Anima<span>Sync</span></h1>
+  <div class="badge badge-loading" id="status-badge">Loading...</div>
+</header>
+
+<main>
+  <!-- Left: Input -->
+  <div class="card">
+    <h2>Audio Input</h2>
+    <div class="drop-zone" id="drop-zone">
+      <p><strong>Drop an audio file here</strong></p>
+      <p>or click to browse (.mp3, .wav, .ogg, .m4a)</p>
+      <input type="file" id="file-input" accept="audio/*">
+    </div>
+
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-bar"><div class="progress-bar-fill" id="progress-fill"></div></div>
+      <div class="progress-label" id="progress-label">Initializing...</div>
+    </div>
+
+    <div class="metrics" id="metrics" style="display:none">
+      <div class="metric"><div class="metric-value" id="m-frames">—</div><div class="metric-label">Frames</div></div>
+      <div class="metric"><div class="metric-value" id="m-time">—</div><div class="metric-label">WASM Time</div></div>
+      <div class="metric"><div class="metric-value" id="m-rtf">—</div><div class="metric-label">Realtime Factor</div></div>
+    </div>
+
+    <div class="playback" id="playback" style="display:none">
+      <button class="btn-play" id="btn-play" disabled>Play Animation</button>
+      <span class="time-label" id="time-label">0:00 / 0:00</span>
+    </div>
+  </div>
+
+  <!-- Right: Blendshapes -->
+  <div class="card">
+    <h2>52 ARKit Blendshapes — V2 Student</h2>
+    <div class="bs-grid" id="bs-grid"></div>
+  </div>
+</main>
+
+<footer>
+  <a href="https://github.com/goodganglabs/AnimaSync">AnimaSync</a> — powered by
+  <a href="https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v2">@goodganglabs/lipsync-wasm-v2</a>
+</footer>
+
+<script type="module">
+// ================================================================
+// AnimaSync — V2 Student Model Example
+// No 3D avatar, no Three.js. Pure audio → lip sync data (52-dim).
+// ================================================================
+
+const VERSION = '0.3.9';
+const CDN = `https://cdn.jsdelivr.net/npm/@goodganglabs/lipsync-wasm-v2@${VERSION}`;
+
+// ── All 52 ARKit blendshape channels ──
+const CHANNELS = [
+  { idx: 0,  name: 'browDownLeft',      group: 'brow' },
+  { idx: 1,  name: 'browDownRight',     group: 'brow' },
+  { idx: 2,  name: 'browInnerUp',       group: 'brow' },
+  { idx: 3,  name: 'browOuterUpLeft',   group: 'brow' },
+  { idx: 4,  name: 'browOuterUpRight',  group: 'brow' },
+  { idx: 5,  name: 'cheekPuff',         group: 'cheek' },
+  { idx: 6,  name: 'cheekSquintLeft',   group: 'cheek' },
+  { idx: 7,  name: 'cheekSquintRight',  group: 'cheek' },
+  { idx: 8,  name: 'eyeBlinkLeft',      group: 'eye' },
+  { idx: 9,  name: 'eyeBlinkRight',     group: 'eye' },
+  { idx: 10, name: 'eyeLookDownLeft',   group: 'eye' },
+  { idx: 11, name: 'eyeLookDownRight',  group: 'eye' },
+  { idx: 12, name: 'eyeLookInLeft',     group: 'eye' },
+  { idx: 13, name: 'eyeLookInRight',    group: 'eye' },
+  { idx: 14, name: 'eyeLookOutLeft',    group: 'eye' },
+  { idx: 15, name: 'eyeLookOutRight',   group: 'eye' },
+  { idx: 16, name: 'eyeLookUpLeft',     group: 'eye' },
+  { idx: 17, name: 'eyeLookUpRight',    group: 'eye' },
+  { idx: 18, name: 'eyeSquintLeft',     group: 'eye' },
+  { idx: 19, name: 'eyeSquintRight',    group: 'eye' },
+  { idx: 20, name: 'eyeWideLeft',       group: 'eye' },
+  { idx: 21, name: 'eyeWideRight',      group: 'eye' },
+  { idx: 22, name: 'jawForward',        group: 'jaw' },
+  { idx: 23, name: 'jawLeft',           group: 'jaw' },
+  { idx: 24, name: 'jawOpen',           group: 'jaw' },
+  { idx: 25, name: 'jawRight',          group: 'jaw' },
+  { idx: 26, name: 'mouthClose',        group: 'mouth' },
+  { idx: 27, name: 'mouthDimpleLeft',   group: 'mouth' },
+  { idx: 28, name: 'mouthDimpleRight',  group: 'mouth' },
+  { idx: 29, name: 'mouthFrownLeft',    group: 'mouth' },
+  { idx: 30, name: 'mouthFrownRight',   group: 'mouth' },
+  { idx: 31, name: 'mouthFunnel',       group: 'mouth' },
+  { idx: 32, name: 'mouthLeft',         group: 'mouth' },
+  { idx: 33, name: 'mouthLowerDownL',   group: 'mouth' },
+  { idx: 34, name: 'mouthLowerDownR',   group: 'mouth' },
+  { idx: 35, name: 'mouthPressLeft',    group: 'mouth' },
+  { idx: 36, name: 'mouthPressRight',   group: 'mouth' },
+  { idx: 37, name: 'mouthPucker',       group: 'mouth' },
+  { idx: 38, name: 'mouthRight',        group: 'mouth' },
+  { idx: 39, name: 'mouthRollLower',    group: 'mouth' },
+  { idx: 40, name: 'mouthRollUpper',    group: 'mouth' },
+  { idx: 41, name: 'mouthShrugLower',   group: 'mouth' },
+  { idx: 42, name: 'mouthShrugUpper',   group: 'mouth' },
+  { idx: 43, name: 'mouthSmileLeft',    group: 'mouth' },
+  { idx: 44, name: 'mouthSmileRight',   group: 'mouth' },
+  { idx: 45, name: 'mouthStretchLeft',  group: 'mouth' },
+  { idx: 46, name: 'mouthStretchRight', group: 'mouth' },
+  { idx: 47, name: 'mouthUpperUpLeft',  group: 'mouth' },
+  { idx: 48, name: 'mouthUpperUpRight', group: 'mouth' },
+  { idx: 49, name: 'noseSneerLeft',     group: 'nose' },
+  { idx: 50, name: 'noseSneerRight',    group: 'nose' },
+  { idx: 51, name: 'tongueOut',         group: 'mouth' },
+];
+
+// ── DOM refs ──
+const statusBadge = document.getElementById('status-badge');
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const progressWrap = document.getElementById('progress-wrap');
+const progressFill = document.getElementById('progress-fill');
+const progressLabel = document.getElementById('progress-label');
+const metricsEl = document.getElementById('metrics');
+const playbackEl = document.getElementById('playback');
+const btnPlay = document.getElementById('btn-play');
+const timeLabel = document.getElementById('time-label');
+const bsGrid = document.getElementById('bs-grid');
+
+// ── Build blendshape bar rows ──
+const bsRows = CHANNELS.map(ch => {
+  const row = document.createElement('div'); row.className = 'bs-row';
+  row.innerHTML = `
+    <div class="bs-name">${ch.name}</div>
+    <div class="bs-track"><div class="bs-fill ${ch.group}" id="bs-${ch.idx}"></div></div>
+    <div class="bs-val" id="bsv-${ch.idx}">0</div>
+  `;
+  bsGrid.appendChild(row);
+  return { idx: ch.idx, fill: null, val: null };
+});
+// Cache DOM refs
+bsRows.forEach(r => {
+  r.fill = document.getElementById(`bs-${r.idx}`);
+  r.val = document.getElementById(`bsv-${r.idx}`);
+});
+
+function updateBars(frame) {
+  for (const r of bsRows) {
+    const v = frame[r.idx] || 0;
+    const pct = Math.min(v * 100, 100);
+    r.fill.style.width = pct + '%';
+    r.val.textContent = v.toFixed(2);
+  }
+}
+
+function resetBars() {
+  for (const r of bsRows) { r.fill.style.width = '0%'; r.val.textContent = '0'; }
+}
+
+// ── Initialize LipSync ──
+let lipsync = null;
+let currentResult = null;
+let animId = null;
+
+async function initialize() {
+  try {
+    const { LipSyncWasmWrapper } = await import(`${CDN}/lipsync-wasm-wrapper.js`);
+    lipsync = new LipSyncWasmWrapper({ wasmPath: `${CDN}/lipsync_wasm_v2.js` });
+
+    progressWrap.classList.add('active');
+    await lipsync.init({
+      onProgress: (stage, pct) => {
+        progressFill.style.width = pct + '%';
+        progressLabel.textContent = `${stage} — ${pct}%`;
+      },
+    });
+
+    progressWrap.classList.remove('active');
+    statusBadge.textContent = 'Ready';
+    statusBadge.classList.remove('badge-loading');
+  } catch (err) {
+    statusBadge.textContent = 'Error';
+    statusBadge.style.background = 'rgba(239,68,68,0.12)';
+    statusBadge.style.color = '#ef4444';
+    progressLabel.textContent = err.message;
+    console.error(err);
+  }
+}
+
+// ── File handling ──
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if (e.target.files[0]) processFile(e.target.files[0]); });
+
+async function processFile(file) {
+  if (!lipsync?.ready) return;
+  stopAnimation();
+  resetBars();
+
+  statusBadge.textContent = 'Processing...';
+  statusBadge.classList.add('badge-loading');
+
+  const t0 = performance.now();
+  currentResult = await lipsync.processFile(file);
+  const elapsed = performance.now() - t0;
+
+  const audioDuration = currentResult.frame_count / currentResult.fps;
+  document.getElementById('m-frames').textContent = currentResult.frame_count;
+  document.getElementById('m-time').textContent = (elapsed / 1000).toFixed(2) + 's';
+  document.getElementById('m-rtf').textContent = (elapsed / 1000 / audioDuration).toFixed(2) + 'x';
+
+  metricsEl.style.display = '';
+  playbackEl.style.display = '';
+  btnPlay.disabled = false;
+
+  statusBadge.textContent = `${currentResult.frame_count} frames`;
+  statusBadge.classList.remove('badge-loading');
+}
+
+// ── Playback animation ──
+function formatTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function stopAnimation() {
+  if (animId) { cancelAnimationFrame(animId); animId = null; }
+  btnPlay.textContent = 'Play Animation';
+}
+
+let playing = false;
+btnPlay.addEventListener('click', () => {
+  if (playing) { stopAnimation(); playing = false; resetBars(); return; }
+  if (!currentResult) return;
+
+  playing = true;
+  btnPlay.textContent = 'Stop';
+  const total = currentResult.frame_count;
+  const duration = total / 30;
+  const startTime = performance.now();
+
+  function tick() {
+    const elapsed = (performance.now() - startTime) / 1000;
+    const frameIdx = Math.min(Math.floor(elapsed * 30), total - 1);
+
+    const frame = lipsync.getFrame(currentResult, frameIdx);
+    updateBars(frame);
+    timeLabel.textContent = `${formatTime(elapsed)} / ${formatTime(duration)}`;
+
+    if (frameIdx < total - 1) {
+      animId = requestAnimationFrame(tick);
+    } else {
+      playing = false;
+      btnPlay.textContent = 'Play Animation';
+    }
+  }
+  animId = requestAnimationFrame(tick);
+});
+
+// ── Start ──
+initialize();
+</script>
+</body>
+</html>
