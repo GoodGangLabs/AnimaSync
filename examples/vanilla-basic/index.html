@@ -312,21 +312,29 @@ async function processFile(file) {
   statusBadge.textContent = 'Processing...';
   statusBadge.classList.add('badge-loading');
 
-  const t0 = performance.now();
-  currentResult = await lipsync.processFile(file);
-  const elapsed = performance.now() - t0;
+  try {
+    const t0 = performance.now();
+    currentResult = await lipsync.processFile(file);
+    const elapsed = performance.now() - t0;
 
-  const audioDuration = currentResult.frame_count / currentResult.fps;
-  document.getElementById('m-frames').textContent = currentResult.frame_count;
-  document.getElementById('m-time').textContent = (elapsed / 1000).toFixed(2) + 's';
-  document.getElementById('m-rtf').textContent = (elapsed / 1000 / audioDuration).toFixed(2) + 'x';
+    const audioDuration = Math.max(currentResult.frame_count / currentResult.fps, 0.001);
+    document.getElementById('m-frames').textContent = currentResult.frame_count;
+    document.getElementById('m-time').textContent = (elapsed / 1000).toFixed(2) + 's';
+    document.getElementById('m-rtf').textContent = (elapsed / 1000 / audioDuration).toFixed(2) + 'x';
 
-  metricsEl.style.display = '';
-  playbackEl.style.display = '';
-  btnPlay.disabled = false;
+    metricsEl.style.display = '';
+    playbackEl.style.display = '';
+    btnPlay.disabled = false;
 
-  statusBadge.textContent = `${currentResult.frame_count} frames`;
-  statusBadge.classList.remove('badge-loading');
+    statusBadge.textContent = `${currentResult.frame_count} frames`;
+    statusBadge.classList.remove('badge-loading');
+  } catch (err) {
+    statusBadge.textContent = 'Error';
+    statusBadge.style.background = 'rgba(239,68,68,0.12)';
+    statusBadge.style.color = '#ef4444';
+    statusBadge.classList.remove('badge-loading');
+    console.error('Process error:', err);
+  }
 }
 
 // ── Playback animation ──
