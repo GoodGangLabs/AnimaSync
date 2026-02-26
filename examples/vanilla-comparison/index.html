@@ -375,20 +375,25 @@ for (const id of ['vrm-drop-v1', 'vrm-drop-v2']) {
     e.preventDefault();
     const file = [...e.dataTransfer.files].find(f => f.name.endsWith('.vrm'));
     if (!file) return;
+    if (file.size > 100 * 1024 * 1024) { console.warn('VRM file exceeds 100MB limit'); return; }
     const url = URL.createObjectURL(file);
 
-    // Load into both scenes
-    if (lsV1?.ready) {
-      if (vrmV1) sceneV1.scene.remove(vrmV1.scene);
-      const r = await loadVRMIntoScene(url, sceneV1, lsV1);
-      vrmV1 = r.vrm; mixerV1 = r.mixer; idleActionV1 = r.idleAction; speakingActionV1 = r.speakingAction;
-      document.getElementById('vrm-drop-v1').classList.add('hidden');
-    }
-    if (lsV2?.ready) {
-      if (vrmV2) sceneV2.scene.remove(vrmV2.scene);
-      const r = await loadVRMIntoScene(url, sceneV2, lsV2);
-      vrmV2 = r.vrm; mixerV2 = r.mixer; idleActionV2 = r.idleAction; speakingActionV2 = r.speakingAction;
-      document.getElementById('vrm-drop-v2').classList.add('hidden');
+    try {
+      // Load into both scenes
+      if (lsV1?.ready) {
+        if (vrmV1) sceneV1.scene.remove(vrmV1.scene);
+        const r = await loadVRMIntoScene(url, sceneV1, lsV1);
+        vrmV1 = r.vrm; mixerV1 = r.mixer; idleActionV1 = r.idleAction; speakingActionV1 = r.speakingAction;
+        document.getElementById('vrm-drop-v1').classList.add('hidden');
+      }
+      if (lsV2?.ready) {
+        if (vrmV2) sceneV2.scene.remove(vrmV2.scene);
+        const r = await loadVRMIntoScene(url, sceneV2, lsV2);
+        vrmV2 = r.vrm; mixerV2 = r.mixer; idleActionV2 = r.idleAction; speakingActionV2 = r.speakingAction;
+        document.getElementById('vrm-drop-v2').classList.add('hidden');
+      }
+    } finally {
+      URL.revokeObjectURL(url);
     }
   });
 }
@@ -453,54 +458,63 @@ initEngines().catch(err => {
 // ================================================================
 // Audio File — process through both engines
 // ================================================================
+let fileAudioCtx = null;
 document.getElementById('audio-input').addEventListener('change', async e => {
   const file = e.target.files[0];
   if (!file || !lsV1?.ready || !lsV2?.ready) return;
 
-  // Process V1
-  const t1 = performance.now();
-  const r1 = await lsV1.processFile(file);
-  const e1 = performance.now() - t1;
-  const dur1 = r1.frame_count / r1.fps;
-  document.getElementById('s-v1-frames').textContent = r1.frame_count;
-  document.getElementById('s-v1-wasm').textContent = (e1/1000).toFixed(2)+'s';
-  document.getElementById('s-v1-rtf').textContent = (e1/1000/dur1).toFixed(2)+'x';
+  try {
+    // Process V1
+    const t1 = performance.now();
+    const r1 = await lsV1.processFile(file);
+    const e1 = performance.now() - t1;
+    const dur1 = Math.max(r1.frame_count / r1.fps, 0.001);
+    document.getElementById('s-v1-frames').textContent = r1.frame_count;
+    document.getElementById('s-v1-wasm').textContent = (e1/1000).toFixed(2)+'s';
+    document.getElementById('s-v1-rtf').textContent = (e1/1000/dur1).toFixed(2)+'x';
 
-  // Process V2
-  const t2 = performance.now();
-  const r2 = await lsV2.processFile(file);
-  const e2 = performance.now() - t2;
-  const dur2 = r2.frame_count / r2.fps;
-  document.getElementById('s-v2-frames').textContent = r2.frame_count;
-  document.getElementById('s-v2-wasm').textContent = (e2/1000).toFixed(2)+'s';
-  document.getElementById('s-v2-rtf').textContent = (e2/1000/dur2).toFixed(2)+'x';
+    // Process V2
+    const t2 = performance.now();
+    const r2 = await lsV2.processFile(file);
+    const e2 = performance.now() - t2;
+    const dur2 = Math.max(r2.frame_count / r2.fps, 0.001);
+    document.getElementById('s-v2-frames').textContent = r2.frame_count;
+    document.getElementById('s-v2-wasm').textContent = (e2/1000).toFixed(2)+'s';
+    document.getElementById('s-v2-rtf').textContent = (e2/1000/dur2).toFixed(2)+'x';
 
-  // Queue frames
-  queueV1.length = 0; queueV2.length = 0;
-  for (let i = 0; i < r1.frame_count; i++) queueV1.push(lsV1.getFrame(r1, i));
-  for (let i = 0; i < r2.frame_count; i++) queueV2.push(lsV2.getFrame(r2, i));
+    // Queue frames
+    queueV1.length = 0; queueV2.length = 0;
+    for (let i = 0; i < r1.frame_count; i++) queueV1.push(lsV1.getFrame(r1, i));
+    for (let i = 0; i < r2.frame_count; i++) queueV2.push(lsV2.getFrame(r2, i));
 
-  transitionToSpeaking();
+    transitionToSpeaking();
 
-  // Play audio
-  const audioCtx = new AudioContext();
-  const buf = await file.arrayBuffer();
-  const audioBuf = await audioCtx.decodeAudioData(buf);
-  const src = audioCtx.createBufferSource();
-  src.buffer = audioBuf; src.connect(audioCtx.destination); src.start();
-  src.onended = () => { transitionToIdle(); resetVRM(vrmV1); resetVRM(vrmV2); };
+    // Close previous AudioContext to prevent leak
+    if (fileAudioCtx) { fileAudioCtx.close(); fileAudioCtx = null; }
+
+    // Play audio
+    fileAudioCtx = new AudioContext();
+    const buf = await file.arrayBuffer();
+    const audioBuf = await fileAudioCtx.decodeAudioData(buf);
+    const src = fileAudioCtx.createBufferSource();
+    src.buffer = audioBuf; src.connect(fileAudioCtx.destination); src.start();
+    src.onended = () => { transitionToIdle(); resetVRM(vrmV1); resetVRM(vrmV2); };
+  } catch (err) {
+    console.error('Process error:', err);
+  }
 });
 
 // ================================================================
 // Microphone Streaming
 // ================================================================
-let micActive = false, audioCtx = null, worklet = null;
+let micActive = false, audioCtx = null, worklet = null, micStream = null;
 const micBtn = document.getElementById('mic-btn');
 
 micBtn.addEventListener('click', async () => {
   if (micActive) {
     if (worklet) { worklet.disconnect(); worklet = null; }
     if (audioCtx) { audioCtx.close(); audioCtx = null; }
+    if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
     micActive = false;
     micBtn.classList.remove('active');
     micBtn.innerHTML = '<span>🎤</span> Mic';
@@ -511,6 +525,7 @@ micBtn.addEventListener('click', async () => {
   if (!lsV1?.ready || !lsV2?.ready) return;
 
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  micStream = stream;
   audioCtx = new AudioContext({ sampleRate: 16000 });
   const source = audioCtx.createMediaStreamSource(stream);
 
