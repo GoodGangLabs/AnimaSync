@@ -14,11 +14,11 @@ Extracts emotion from speech and generates lip sync, facial expressions, and bod
 &nbsp;
 [![npm V2](https://img.shields.io/npm/v/@goodganglabs/lipsync-wasm-v2?label=V2%20%E2%80%A2%20Student&color=10b981&style=for-the-badge)](https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v2)
 
-[Live Demo (V1)](https://lipsync-wasm.quasar.ggls.dev/v1/demo/)
+[V1 Demo](https://goodganglabs.github.io/AnimaSync/examples/vanilla-basic/)
 &ensp;·&ensp;
-[Live Demo (V2)](https://lipsync-wasm.quasar.ggls.dev/v2/demo/)
+[V2 Demo](https://goodganglabs.github.io/AnimaSync/examples/vanilla-avatar/)
 &ensp;·&ensp;
-[Side-by-side](https://lipsync-wasm.quasar.ggls.dev/demo/)
+[V1 vs V2](https://goodganglabs.github.io/AnimaSync/examples/vanilla-comparison/)
 &ensp;·&ensp;
 [npm V1](https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v1)
 &ensp;·&ensp;
@@ -130,8 +130,8 @@ Working examples you can run locally — zero npm install, all loaded from CDN.
 
 | Example | Description | Source |
 |---------|-------------|--------|
-| **[V1 Avatar](examples/vanilla-basic/)** | Full 3D VRM avatar with V1 (111-dim phoneme engine). Dual mode, VAD, idle expressions. | [index.html](examples/vanilla-basic/index.html) |
-| **[V2 Avatar](examples/vanilla-avatar/)** | Full 3D VRM avatar with V2 (52-dim student model). Crisp mouth, direct prediction. | [index.html](examples/vanilla-avatar/index.html) |
+| **[V1 Data](examples/vanilla-basic/)** | V1 phoneme engine — 52 ARKit blendshapes visualization, ONNX inference, playback. | [index.html](examples/vanilla-basic/index.html) |
+| **[V2 Data](examples/vanilla-avatar/)** | V2 student model — 52 ARKit blendshapes direct prediction, crisp mouth. | [index.html](examples/vanilla-avatar/index.html) |
 | **[V1 vs V2](examples/vanilla-comparison/)** | Side-by-side dual avatar comparison. Same voice, two animation engines. | [index.html](examples/vanilla-comparison/index.html) |
 
 **Run any example:**
