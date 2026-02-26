@@ -130,8 +130,8 @@ Working examples you can run locally — zero npm install, all loaded from CDN.
 
 | Example | Description | Source |
 |---------|-------------|--------|
-| **[Basic](examples/vanilla-basic/)** | Audio → animated blendshape visualization. No 3D, pure API demo. | [index.html](examples/vanilla-basic/index.html) |
-| **[VRM Avatar](examples/vanilla-avatar/)** | Full 3D avatar — lip sync, expressions, body motion, mic streaming. | [index.html](examples/vanilla-avatar/index.html) |
+| **[V1 Avatar](examples/vanilla-basic/)** | Full 3D VRM avatar with V1 (111-dim phoneme engine). Dual mode, VAD, idle expressions. | [index.html](examples/vanilla-basic/index.html) |
+| **[V2 Avatar](examples/vanilla-avatar/)** | Full 3D VRM avatar with V2 (52-dim student model). Crisp mouth, direct prediction. | [index.html](examples/vanilla-avatar/index.html) |
 | **[V1 vs V2](examples/vanilla-comparison/)** | Side-by-side dual avatar comparison. Same voice, two animation engines. | [index.html](examples/vanilla-comparison/index.html) |
 
 **Run any example:**

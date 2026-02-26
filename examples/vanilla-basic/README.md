@@ -1,28 +1,36 @@
-# Vanilla Basic
+# Vanilla Basic (V1)
 
-Minimal AnimaSync example — no 3D avatar, no Three.js. Drop an audio file and see how voice drives lip sync, facial expression, and blink animation data in real time.
+Full 3D VRM avatar driven by AnimaSync V1 — the 111-dim phoneme-based engine. Lip sync, facial expressions (brows, cheeks, tongue), natural eye blinks, and body motion generated from voice via ONNX phoneme classification + viseme mapping.
 
 ## What it demonstrates
 
-- Loading `@goodganglabs/lipsync-wasm-v2` from CDN (zero `npm install`)
-- `processFile()` batch API — returns lip sync + expressions + blinks in one call
-- Visualizing 23 key ARKit channels: jaw, mouth, eyes, brows, cheeks
+- **111-dim blendshape output**: Full ARKit channels including tongue, cheeks, and brows
+- **Phoneme-based pipeline**: Voice → MFCC → Phoneme → Viseme → Blendshape
+- **Dual mode**: ONNX inference with heuristic fallback if ONNX fails
+- **IdleExpressionGenerator**: Natural eye blinks (2.5–4.5s cycle, double-blink 15%)
+- **VoiceActivityDetector**: Auto-switches idle ↔ speaking body pose
+- **OneEuroFilter**: Time-domain smoothing for natural motion
+- Real-time mic streaming + batch file processing + TTS
+- Three.js + `@pixiv/three-vrm` integration
 
 ## Run locally
 
 ```bash
-# Any static file server works
 npx serve .
 # or
 python3 -m http.server 8080
 ```
 
-Open `http://localhost:8080` (or the port your server shows).
+## VRM Avatar
+
+Drop any `.vrm` file onto the canvas. Free CC0 avatars are available at:
+
+- [VRoid Hub](https://hub.vroid.com/en/models?characterization=allow) — filter by "OK to use as-is"
 
 ## How it works
 
-1. WASM + ONNX model load from jsdelivr CDN on page load
-2. Drop/select an audio file → `processFile()` returns all animation frames (lip sync + expressions + blinks)
-3. `requestAnimationFrame` loop plays frames at 30fps, showing how each facial channel responds to the voice
-
-No bundler, no framework, single HTML file.
+1. Page loads → WASM + ONNX model initialized from CDN
+2. Drop a `.vrm` file → Three.js scene renders the avatar with idle breathing animation
+3. Upload audio or click Microphone → V1 engine generates phoneme-based lip sync + expressions + blinks
+4. All animation layers (face + body) applied to VRM at 30fps via frame queue
+5. Body pose auto-transitions between idle and speaking based on voice activity detection

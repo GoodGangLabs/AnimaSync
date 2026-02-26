@@ -1,544 +1,1750 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AnimaSync — V1 vs V2 Animation Engine Comparison</title>
-  <script type="importmap">
-  { "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.179.1/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.179.1/examples/jsm/",
-    "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.4.5/lib/three-vrm.module.min.js",
-    "@pixiv/three-vrm-animation": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm-animation@3.4.5/lib/three-vrm-animation.module.min.js"
-  }}
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/ort.min.js"></script>
-  <style>
-    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: 'Inter', system-ui, -apple-system, sans-serif;
-      background: #0f0f1a; color: #e2e8f0; min-height: 100vh;
-      display: flex; flex-direction: column;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnimaSync — V1 vs V2 Comparison</title>
+    <script type="importmap">
+    { "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.179.1/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.179.1/examples/jsm/",
+        "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.4.5/lib/three-vrm.module.min.js",
+        "@pixiv/three-vrm-animation": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm-animation@3.4.5/lib/three-vrm-animation.module.min.js"
+    }}
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/ort.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+        }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
 
-    /* ── Header ── */
-    header {
-      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-      padding: 16px 24px; border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-    header h1 { font-size: 1.15rem; font-weight: 700; }
-    header h1 span { color: #4cc9f0; }
-    .badges { display: flex; gap: 6px; }
-    .badge {
-      padding: 3px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 600;
-    }
-    .badge-v1 { background: rgba(245,158,11,0.12); color: #f59e0b; }
-    .badge-v2 { background: rgba(16,185,129,0.12); color: #10b981; }
-    .badge-loading { background: rgba(100,100,100,0.2); color: #64748b; }
-    .header-controls {
-      margin-left: auto; display: flex; gap: 8px; align-items: center;
-    }
-    .header-controls label, .header-controls button {
-      display: flex; align-items: center; gap: 6px;
-      padding: 8px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);
-      background: #16213e; color: #e2e8f0; font-size: 0.8rem;
-      cursor: pointer; transition: all 0.15s;
-    }
-    .header-controls button:hover, .header-controls label:hover {
-      border-color: rgba(76,201,240,0.3);
-    }
-    .header-controls button.active { border-color: #4cc9f0; background: rgba(76,201,240,0.08); }
-    .header-controls button:disabled { opacity: 0.3; cursor: not-allowed; }
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 15px 20px; background: #16213e; border-radius: 10px; margin-bottom: 20px;
+        }
+        header h1 { font-size: 1.5rem; color: #4cc9f0; }
 
-    /* ── Dual Canvas Grid ── */
-    .dual-grid { display: grid; grid-template-columns: 1fr 1fr; flex: 1; overflow: hidden; }
-    @media (max-width: 800px) { .dual-grid { grid-template-columns: 1fr; } }
+        .header-badges { display: flex; align-items: center; gap: 8px; }
 
-    .pane { position: relative; display: flex; flex-direction: column; }
-    .pane:first-child { border-right: 1px solid rgba(255,255,255,0.04); }
+        .status { padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; font-weight: 500; }
+        .status-loading { background: #ffc107; color: #000; }
+        .status-ready { background: #4caf50; color: #fff; }
+        .status-processing { background: #2196f3; color: #fff; }
+        .status-error { background: #f44336; color: #fff; }
 
-    .pane-header {
-      display: flex; align-items: center; gap: 8px;
-      padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.04);
-    }
-    .pane-title { font-size: 0.85rem; font-weight: 600; }
-    .pane-title.v1 { color: #f59e0b; }
-    .pane-title.v2 { color: #10b981; }
-    .pane-dim { font-size: 0.7rem; color: #475569; }
+        .mode-badge { padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+        .mode-onnx { background: #7c3aed; color: #fff; }
+        .mode-heuristic { background: #6b7280; color: #fff; }
+        .mode-v1 { background: #f59e0b; color: #000; }
+        .mode-v2 { background: #10b981; color: #fff; }
 
-    .canvas-wrap { flex: 1; position: relative; }
-    canvas { width: 100%; height: 100%; display: block; }
+        .progress-bar { width: 100%; height: 4px; background: #333; border-radius: 2px; margin-top: 10px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #4cc9f0, #f72585); border-radius: 2px; transition: width 0.3s; }
 
-    .vrm-drop {
-      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-      background: rgba(15,15,26,0.92); z-index: 5; font-size: 0.85rem; color: #475569;
-    }
-    .vrm-drop.hidden { display: none; }
-    .vrm-drop a { color: #4cc9f0; text-decoration: none; }
+        .panel { background: #16213e; border-radius: 10px; padding: 20px; }
+        .panel h3 { color: #4cc9f0; margin-bottom: 15px; font-size: 1.1rem; }
 
-    /* ── Bottom panel ── */
-    .bottom-panel {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 0;
-      border-top: 1px solid rgba(255,255,255,0.06);
-      max-height: 200px; overflow-y: auto;
-    }
-    @media (max-width: 800px) { .bottom-panel { grid-template-columns: 1fr; } }
+        /* Avatar grid: two canvases side by side */
+        .avatar-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        @media (max-width: 900px) { .avatar-grid { grid-template-columns: 1fr; } }
 
-    .stats-col { padding: 12px 16px; }
-    .stats-col:first-child { border-right: 1px solid rgba(255,255,255,0.04); }
-    .stats-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 8px; }
-    .stat { text-align: center; }
-    .stat-val { font-size: 1rem; font-weight: 700; }
-    .stat-val.v1 { color: #f59e0b; }
-    .stat-val.v2 { color: #10b981; }
-    .stat-lbl { font-size: 0.6rem; color: #475569; }
+        .avatar-panel { background: #16213e; border-radius: 10px; padding: 20px; }
+        .avatar-panel h3 {
+            color: #4cc9f0; margin-bottom: 10px; font-size: 1rem;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .avatar-panel h3 .version-tag {
+            font-size: 0.75rem; padding: 3px 8px; border-radius: 12px; font-weight: 600;
+        }
+        .version-tag.v1 { background: #f59e0b; color: #000; }
+        .version-tag.v2 { background: #10b981; color: #fff; }
 
-    .bs-row-mini { display: flex; align-items: center; gap: 4px; margin: 2px 0; }
-    .bs-name-mini { width: 70px; font-size: 0.6rem; font-family: monospace; color: #475569; text-align: right; }
-    .bs-track-mini { flex: 1; height: 8px; background: rgba(255,255,255,0.03); border-radius: 2px; overflow: hidden; }
-    .bs-fill-v1 { height: 100%; background: #f59e0b; width: 0%; transition: width 0.04s linear; border-radius: 2px; }
-    .bs-fill-v2 { height: 100%; background: #10b981; width: 0%; transition: width 0.04s linear; border-radius: 2px; }
+        .avatar-canvas { width: 100%; height: 380px; background: #0f0f1a; border-radius: 10px; display: block; }
 
-    /* ── Init overlay ── */
-    .init-overlay {
-      position: fixed; inset: 0; background: rgba(15,15,26,0.95);
-      display: flex; align-items: center; justify-content: center; z-index: 100;
-      flex-direction: column; gap: 16px;
-    }
-    .init-overlay.hidden { display: none; }
-    .init-status { font-size: 0.9rem; color: #94a3b8; }
-    .init-bar { width: 300px; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
-    .init-bar-fill { height: 100%; width: 0%; transition: width 0.3s; }
-    .init-bar-fill.v1 { background: #f59e0b; }
-    .init-bar-fill.v2 { background: #10b981; }
+        .preview-info {
+            display: flex; justify-content: space-between; margin-top: 10px;
+            font-size: 0.85rem; color: #888;
+        }
 
-    footer {
-      padding: 10px 24px; text-align: center; font-size: 0.65rem; color: #1e293b;
-      border-top: 1px solid rgba(255,255,255,0.04);
-    }
-    footer a { color: #4cc9f0; text-decoration: none; }
-  </style>
+        .avatar-progress { margin-top: 8px; }
+        .avatar-progress .progress-bar { height: 3px; }
+
+        /* Audio input */
+        .audio-panel { margin-bottom: 20px; }
+        .audio-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 900px) { .audio-inner { grid-template-columns: 1fr; } }
+
+        .drop-zone { border: 2px dashed #4cc9f0; border-radius: 10px; padding: 30px; text-align: center; transition: all 0.3s; cursor: pointer; }
+        .drop-zone:hover, .drop-zone.dragover { background: rgba(76, 201, 240, 0.1); border-color: #f72585; }
+        .drop-zone p { color: #888; margin-bottom: 8px; }
+
+        .btn-group { display: flex; gap: 10px; justify-content: center; margin-top: 15px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 0.95rem; font-weight: 500; transition: all 0.3s; }
+        .btn-primary { background: #4cc9f0; color: #000; }
+        .btn-primary:hover { background: #f72585; color: #fff; }
+        .btn-secondary { background: #333; color: #fff; }
+        .btn-secondary:hover { background: #444; }
+        .btn-secondary.recording { background: #f72585; }
+        @keyframes recording-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(247,37,133,0.5); } 50% { box-shadow: 0 0 0 8px rgba(247,37,133,0); } }
+        .btn-secondary.recording { animation: recording-pulse 1.5s infinite; }
+        input[type="file"] { display: none; }
+
+        /* TTS */
+        .tts-section { padding: 12px; background: rgba(102,126,234,0.08); border: 1px solid rgba(102,126,234,0.2); border-radius: 8px; }
+        .tts-section h4 { font-size: 0.85rem; color: #667eea; margin-bottom: 8px; }
+        .tts-textarea { width: 100%; padding: 8px 10px; background: #1a1a2e; border: 1px solid #333; border-radius: 6px; color: #e0e0e0; font-size: 0.9rem; font-family: inherit; resize: vertical; }
+        .tts-textarea:focus { outline: none; border-color: #667eea; }
+        .tts-controls { display: flex; gap: 8px; margin-top: 8px; }
+        .tts-select { padding: 6px 8px; background: #1a1a2e; border: 1px solid #333; border-radius: 6px; color: #e0e0e0; font-size: 0.85rem; }
+        .tts-controls .btn { padding: 8px 12px; font-size: 0.85rem; }
+
+        /* Waveform */
+        .waveform-container { height: 60px; background: #0f0f1a; border-radius: 8px; margin-top: 12px; }
+        #waveform-canvas { width: 100%; height: 100%; }
+
+        /* Controls */
+        .controls { background: #16213e; border-radius: 10px; padding: 15px 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+        .controls label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+
+        /* Blendshape visualization */
+        .bs-compare-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 900px) { .bs-compare-grid { grid-template-columns: 1fr; } }
+
+        .blendshape-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+        .bs-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #0f0f1a; border-radius: 6px; }
+        .bs-name { width: 90px; font-size: 0.75rem; color: #888; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
+        .bs-bar { flex: 1; height: 8px; background: #333; border-radius: 4px; overflow: hidden; }
+        .bs-fill { height: 100%; border-radius: 4px; transition: width 0.1s; }
+        .bs-fill.v1 { background: linear-gradient(90deg, #f59e0b, #f97316); }
+        .bs-fill.v2 { background: linear-gradient(90deg, #10b981, #4cc9f0); }
+        .bs-value { width: 38px; text-align: right; font-size: 0.75rem; font-family: monospace; }
+
+        /* Metrics */
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+        .metric-card { background: #0f0f1a; border-radius: 8px; padding: 12px; text-align: center; }
+        .metric-card h4 { color: #888; font-size: 0.8rem; margin-bottom: 6px; }
+        .metric-card .value { font-size: 1.3rem; font-weight: 700; color: #4cc9f0; }
+        .metric-card .value.v1-color { color: #f59e0b; }
+        .metric-card .value.v2-color { color: #10b981; }
+        .metric-card .value.highlight { color: #f72585; }
+
+        .tts-audio-container { display: none; margin-top: 8px; }
+    </style>
 </head>
 <body>
+    <div class="container">
+        <header>
+            <div style="display:flex; align-items:center; gap: 10px;">
+                <h1>WASM LipSync V1/V2 Compare</h1>
+                <div class="header-badges">
+                    <span id="badge-v1" class="mode-badge mode-heuristic">V1: --</span>
+                    <span id="badge-v2" class="mode-badge mode-heuristic">V2: --</span>
+                </div>
+            </div>
+            <span id="status" class="status status-loading">초기화 중...</span>
+        </header>
+        <div id="model-progress" style="display:none;">
+            <div class="progress-bar"><div id="progress-fill" class="progress-fill" style="width:0%"></div></div>
+            <p id="progress-text" style="font-size:0.8rem; color:#888; margin-top:4px; text-align:center;"></p>
+        </div>
 
-<!-- Init overlay -->
-<div class="init-overlay" id="init-overlay">
-  <h2 style="color:#e2e8f0;font-size:1.1rem">Initializing AnimaSync</h2>
-  <div style="display:flex;gap:24px;">
-    <div style="text-align:center">
-      <div class="init-bar"><div class="init-bar-fill v1" id="init-v1-fill"></div></div>
-      <div style="font-size:0.7rem;color:#f59e0b;margin-top:4px" id="init-v1-label">V1 — waiting</div>
+        <!-- Dual Avatar -->
+        <div class="avatar-grid">
+            <div class="avatar-panel">
+                <h3><span class="version-tag v1">V1</span> Phoneme (111-dim)</h3>
+                <canvas id="avatar-canvas-v1" class="avatar-canvas"></canvas>
+                <div class="preview-info">
+                    <span>FPS: <span id="fps-v1">0</span></span>
+                    <span>프레임: <span id="frame-count-v1">0</span></span>
+                    <span>지연: <span id="latency-v1">0</span>ms</span>
+                </div>
+            </div>
+            <div class="avatar-panel">
+                <h3><span class="version-tag v2">V2</span> Student (52-dim)</h3>
+                <canvas id="avatar-canvas-v2" class="avatar-canvas"></canvas>
+                <div class="preview-info">
+                    <span>FPS: <span id="fps-v2">0</span></span>
+                    <span>프레임: <span id="frame-count-v2">0</span></span>
+                    <span>지연: <span id="latency-v2">0</span>ms</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Audio Input (shared) -->
+        <div class="panel audio-panel" style="margin-bottom: 20px;">
+            <h3>오디오 입력 (V1/V2 공유)</h3>
+            <div class="audio-inner">
+                <div>
+                    <div id="drop-zone" class="drop-zone">
+                        <p>오디오 파일을 여기에 드래그하세요</p>
+                        <p style="font-size: 0.9rem;">또는</p>
+                        <div class="btn-group">
+                            <label class="btn btn-primary">
+                                파일 선택
+                                <input type="file" id="file-input" accept="audio/*">
+                            </label>
+                            <button id="mic-btn" class="btn btn-secondary">마이크</button>
+                        </div>
+                    </div>
+                    <div class="waveform-container">
+                        <canvas id="waveform-canvas"></canvas>
+                    </div>
+                </div>
+                <div class="tts-section">
+                    <h4>TTS 텍스트 입력</h4>
+                    <textarea id="tts-text" class="tts-textarea" rows="3" placeholder="텍스트를 입력하면 음성을 생성하고 V1/V2 동시 립싱크를 처리합니다..."></textarea>
+                    <div class="tts-controls">
+                        <select id="tts-lang" class="tts-select">
+                            <option value="ko">한국어</option>
+                            <option value="en">English</option>
+                            <option value="jp">日本語</option>
+                        </select>
+                        <button id="tts-btn" class="btn btn-primary" style="flex:1;">음성 생성</button>
+                        <button id="tts-stream-btn" class="btn btn-secondary" style="flex:1;">스트리밍 테스트</button>
+                    </div>
+                    <div id="tts-audio-container" class="tts-audio-container">
+                        <audio id="tts-audio" controls style="width:100%; height:36px;"></audio>
+                        <button id="tts-play-sync" class="btn btn-secondary" style="margin-top:6px; width:100%;">오디오 + 립싱크 재생</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <label style="color: #f59e0b;">
+                <input type="checkbox" id="enable-smoothing-v1" checked>
+                V1 스무딩
+            </label>
+            <label style="color: #10b981;">
+                <input type="checkbox" id="enable-smoothing-v2" checked>
+                V2 스무딩
+            </label>
+            <label class="btn btn-secondary" style="cursor:pointer;">
+                VRMA 로드
+                <input type="file" id="vrma-input" accept=".vrma,.glb" style="display:none;">
+            </label>
+            <button id="reset-btn" class="btn btn-secondary">리셋</button>
+        </div>
+
+        <!-- Blendshape Compare -->
+        <div class="panel" style="margin-bottom: 20px;">
+            <h3>블렌드쉐입 비교</h3>
+            <div class="bs-compare-grid">
+                <div>
+                    <h4 style="color:#f59e0b; font-size:0.9rem; margin-bottom:10px;">V1 Phoneme</h4>
+                    <div id="blendshape-grid-v1" class="blendshape-grid"></div>
+                </div>
+                <div>
+                    <h4 style="color:#10b981; font-size:0.9rem; margin-bottom:10px;">V2 Student</h4>
+                    <div id="blendshape-grid-v2" class="blendshape-grid"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Metrics -->
+        <div class="panel">
+            <h3>성능 메트릭 (V1 vs V2)</h3>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <h4>V1 WASM 시간</h4>
+                    <div id="wasm-time-v1" class="value v1-color">-</div>
+                </div>
+                <div class="metric-card">
+                    <h4>V2 WASM 시간</h4>
+                    <div id="wasm-time-v2" class="value v2-color">-</div>
+                </div>
+                <div class="metric-card">
+                    <h4>오디오 길이</h4>
+                    <div id="audio-duration" class="value">-</div>
+                </div>
+                <div class="metric-card">
+                    <h4>V1 프레임</h4>
+                    <div id="total-frames-v1" class="value v1-color">-</div>
+                </div>
+                <div class="metric-card">
+                    <h4>V2 프레임</h4>
+                    <div id="total-frames-v2" class="value v2-color">-</div>
+                </div>
+                <div class="metric-card">
+                    <h4>V1 실시간 배율</h4>
+                    <div id="realtime-factor-v1" class="value v1-color">-</div>
+                </div>
+                <div class="metric-card">
+                    <h4>V2 실시간 배율</h4>
+                    <div id="realtime-factor-v2" class="value v2-color">-</div>
+                </div>
+            </div>
+        </div>
     </div>
-    <div style="text-align:center">
-      <div class="init-bar"><div class="init-bar-fill v2" id="init-v2-fill"></div></div>
-      <div style="font-size:0.7rem;color:#10b981;margin-top:4px" id="init-v2-label">V2 — waiting</div>
-    </div>
-  </div>
-</div>
 
-<header>
-  <h1>Anima<span>Sync</span></h1>
-  <div class="badges">
-    <div class="badge badge-v1" id="badge-v1">V1 loading</div>
-    <div class="badge badge-v2" id="badge-v2">V2 loading</div>
-  </div>
-  <div class="header-controls">
-    <label style="cursor:pointer">
-      <span>📁</span> Audio
-      <input type="file" id="audio-input" accept="audio/*" style="display:none">
-    </label>
-    <button id="mic-btn" disabled><span>🎤</span> Mic</button>
-  </div>
-</header>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
+        import { VRMAnimationLoaderPlugin, createVRMAnimationClip } from '@pixiv/three-vrm-animation';
 
-<div class="dual-grid">
-  <div class="pane">
-    <div class="pane-header">
-      <span class="pane-title v1">V1 — Phoneme Model</span>
-      <span class="pane-dim">111-dim ARKit</span>
-    </div>
-    <div class="canvas-wrap">
-      <canvas id="canvas-v1"></canvas>
-      <div class="vrm-drop" id="vrm-drop-v1">
-        Drop .vrm — <a href="https://hub.vroid.com/en/models?characterization=allow" target="_blank">Free VRMs</a>
-      </div>
-    </div>
-  </div>
-  <div class="pane">
-    <div class="pane-header">
-      <span class="pane-title v2">V2 — Student Model</span>
-      <span class="pane-dim">52-dim ARKit</span>
-    </div>
-    <div class="canvas-wrap">
-      <canvas id="canvas-v2"></canvas>
-      <div class="vrm-drop" id="vrm-drop-v2">
-        Drop .vrm (shared with V1)
-      </div>
-    </div>
-  </div>
-</div>
+        const TTS_API_URL = 'https://tts.quasar.ggls.dev/text-to-speech';
 
-<div class="bottom-panel">
-  <div class="stats-col">
-    <div class="stats-row">
-      <div class="stat"><div class="stat-val v1" id="s-v1-frames">—</div><div class="stat-lbl">Frames</div></div>
-      <div class="stat"><div class="stat-val v1" id="s-v1-wasm">—</div><div class="stat-lbl">WASM</div></div>
-      <div class="stat"><div class="stat-val v1" id="s-v1-rtf">—</div><div class="stat-lbl">RT Factor</div></div>
-    </div>
-    <div id="bs-v1"></div>
-  </div>
-  <div class="stats-col">
-    <div class="stats-row">
-      <div class="stat"><div class="stat-val v2" id="s-v2-frames">—</div><div class="stat-lbl">Frames</div></div>
-      <div class="stat"><div class="stat-val v2" id="s-v2-wasm">—</div><div class="stat-lbl">WASM</div></div>
-      <div class="stat"><div class="stat-val v2" id="s-v2-rtf">—</div><div class="stat-lbl">RT Factor</div></div>
-    </div>
-    <div id="bs-v2"></div>
-  </div>
-</div>
+        // 블렌드쉐입 UI 채널 (ARKit 52-dim 중 주요 채널)
+        const BLENDSHAPE_CHANNELS = [
+            { idx: 24, name: 'jawOpen' },
+            { idx: 22, name: 'jawForward' },
+            { idx: 23, name: 'jawLeft' },
+            { idx: 25, name: 'jawRight' },
+            { idx: 26, name: 'mouthClose' },
+            { idx: 31, name: 'mouthFunnel' },
+            { idx: 37, name: 'mouthPucker' },
+            { idx: 32, name: 'mouthLeft' },
+            { idx: 38, name: 'mouthRight' },
+            { idx: 43, name: 'mouthSmileL' },
+            { idx: 44, name: 'mouthSmileR' },
+            { idx: 29, name: 'mouthFrownL' },
+            { idx: 30, name: 'mouthFrownR' },
+            { idx: 33, name: 'mouthLowerDnL' },
+            { idx: 34, name: 'mouthLowerDnR' },
+            { idx: 47, name: 'mouthUpperUpL' },
+            { idx: 48, name: 'mouthUpperUpR' },
+            { idx: 45, name: 'mouthStretchL' },
+            { idx: 46, name: 'mouthStretchR' },
+            { idx: 8, name: 'eyeBlinkL' },
+            { idx: 9, name: 'eyeBlinkR' },
+            { idx: 5, name: 'cheekPuff' },
+            { idx: 51, name: 'tongueOut' },
+        ];
 
-<footer>
-  <a href="https://github.com/goodganglabs/AnimaSync">AnimaSync</a> —
-  <a href="https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v1">V1</a> vs
-  <a href="https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v2">V2</a> side-by-side
-</footer>
+        // 시스템 인덱스 -> VRM/ARKit 블렌드쉐입 이름 매핑
+        const SYSTEM_INDEX_TO_BLENDSHAPE = {
+            0: ['browDownLeft'], 1: ['browDownRight'], 2: ['browInnerUp'],
+            3: ['browOuterUpLeft'], 4: ['browOuterUpRight'],
+            5: ['cheekPuff'], 6: ['cheekSquintLeft'], 7: ['cheekSquintRight'],
+            8: ['eyeBlinkLeft'], 9: ['eyeBlinkRight'],
+            10: ['eyeLookDownLeft'], 11: ['eyeLookDownRight'],
+            12: ['eyeLookInLeft'], 13: ['eyeLookInRight'],
+            14: ['eyeLookOutLeft'], 15: ['eyeLookOutRight'],
+            16: ['eyeLookUpLeft'], 17: ['eyeLookUpRight'],
+            18: ['eyeSquintLeft'], 19: ['eyeSquintRight'],
+            20: ['eyeWideLeft'], 21: ['eyeWideRight'],
+            22: ['jawForward'], 23: ['jawLeft'], 24: ['jawOpen'], 25: ['jawRight'],
+            26: ['mouthClose'], 27: ['mouthDimpleLeft'], 28: ['mouthDimpleRight'],
+            29: ['mouthFrownLeft'], 30: ['mouthFrownRight'], 31: ['mouthFunnel'],
+            32: ['mouthLeft'], 33: ['mouthLowerDownLeft'], 34: ['mouthLowerDownRight'],
+            35: ['mouthPressLeft'], 36: ['mouthPressRight'], 37: ['mouthPucker'],
+            38: ['mouthRight'], 39: ['mouthRollLower'], 40: ['mouthRollUpper'],
+            41: ['mouthShrugLower'], 42: ['mouthShrugUpper'],
+            43: ['mouthSmileLeft'], 44: ['mouthSmileRight'],
+            45: ['mouthStretchLeft'], 46: ['mouthStretchRight'],
+            47: ['mouthUpperUpLeft'], 48: ['mouthUpperUpRight'],
+            49: ['noseSneerLeft'], 50: ['noseSneerRight'],
+            51: ['tongueOut']
+        };
 
-<script type="module">
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { VRMLoaderPlugin } from '@pixiv/three-vrm';
-import { VRMAnimationLoaderPlugin, createVRMAnimationClip } from '@pixiv/three-vrm-animation';
+        class DualLipSyncApp {
+            constructor() {
+                // Wrappers (loaded dynamically)
+                this.wrapperV1 = null;
+                this.wrapperV2 = null;
 
-// ================================================================
-// Config
-// ================================================================
-const VERSION = '0.3.9';
-const CDN_V1 = `https://cdn.jsdelivr.net/npm/@goodganglabs/lipsync-wasm-v1@${VERSION}`;
-const CDN_V2 = `https://cdn.jsdelivr.net/npm/@goodganglabs/lipsync-wasm-v2@${VERSION}`;
+                this.isProcessing = false;
+                this._animationStopped = true;
+                this.animationId = null;
 
-const ARKIT_52 = [
-  'browDownLeft','browDownRight','browInnerUp','browOuterUpLeft','browOuterUpRight',
-  'cheekPuff','cheekSquintLeft','cheekSquintRight',
-  'eyeBlinkLeft','eyeBlinkRight','eyeLookDownLeft','eyeLookDownRight',
-  'eyeLookInLeft','eyeLookInRight','eyeLookOutLeft','eyeLookOutRight',
-  'eyeLookUpLeft','eyeLookUpRight','eyeSquintLeft','eyeSquintRight',
-  'eyeWideLeft','eyeWideRight',
-  'jawForward','jawLeft','jawOpen','jawRight',
-  'mouthClose','mouthDimpleLeft','mouthDimpleRight','mouthFrownLeft','mouthFrownRight',
-  'mouthFunnel','mouthLeft','mouthLowerDownLeft','mouthLowerDownRight',
-  'mouthPressLeft','mouthPressRight','mouthPucker','mouthRight',
-  'mouthRollLower','mouthRollUpper','mouthShrugLower','mouthShrugUpper',
-  'mouthSmileLeft','mouthSmileRight','mouthStretchLeft','mouthStretchRight',
-  'mouthUpperUpLeft','mouthUpperUpRight',
-  'noseSneerLeft','noseSneerRight','tongueOut',
-];
+                // V1 results
+                this.resultV1 = null;
+                this.currentFrameV1 = 0;
 
-const KEY_INDICES = [24, 31, 37, 33, 34, 43, 44, 39, 40, 8, 9, 2];
-const KEY_NAMES = KEY_INDICES.map(i => ARKIT_52[i]?.substring(0, 10) || `ch${i}`);
+                // V2 results
+                this.resultV2 = null;
+                this.currentFrameV2 = 0;
 
-// ================================================================
-// Build blendshape bars for each version
-// ================================================================
-function buildBars(containerId, cssClass) {
-  const container = document.getElementById(containerId);
-  return KEY_INDICES.map((idx, i) => {
-    const row = document.createElement('div'); row.className = 'bs-row-mini';
-    row.innerHTML = `<div class="bs-name-mini">${KEY_NAMES[i]}</div><div class="bs-track-mini"><div class="${cssClass}" id="${containerId}-${idx}"></div></div>`;
-    container.appendChild(row);
-    return { idx, el: null };
-  });
-}
-const barsV1 = buildBars('bs-v1', 'bs-fill-v1');
-const barsV2 = buildBars('bs-v2', 'bs-fill-v2');
-barsV1.forEach(b => b.el = document.getElementById(`bs-v1-${b.idx}`));
-barsV2.forEach(b => b.el = document.getElementById(`bs-v2-${b.idx}`));
+                // Three.js (dual)
+                this.sceneV1 = null; this.cameraV1 = null; this.rendererV1 = null; this.controlsV1 = null; this.vrmV1 = null;
+                this.sceneV2 = null; this.cameraV2 = null; this.rendererV2 = null; this.controlsV2 = null; this.vrmV2 = null;
 
-function updateBars(bars, frame) {
-  for (const b of bars) {
-    b.el.style.width = Math.min((frame[b.idx] || 0) * 100, 100) + '%';
-  }
-}
+                // VRMA animation — V1/V2 모두 three.js AnimationMixer 사용
+                this.mixerV1 = null;
+                this.idleActionV1 = null;
+                this.speakingActionV1 = null;
+                this.mixerV2 = null;
+                this.idleActionV2 = null;
+                this.speakingActionV2 = null;
+                this.isSpeakingV1 = false;
+                this.isSpeakingV2 = false;
+                this.crossFadeDuration = 1.0; // 크로스페이드 시간 (초)
+                this.crossFadeProgressV1 = 0; // 0=idle, 1=speaking (선형 진행값)
+                this.crossFadeProgressV2 = 0;
 
-// ================================================================
-// Create Three.js scene
-// ================================================================
-function createScene(canvasId) {
-  const canvas = document.getElementById(canvasId);
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
+                // Smoothing
+                this.smoothingEnabledV1 = true;
+                this.smoothingEnabledV2 = true;
+                this.smoothingAlpha = 0.4; // 0 = max smooth, 1 = no smooth
+                this.prevFrameV1 = null;
+                this.prevFrameV2 = null;
 
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0f0f1a);
-  const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
-  camera.position.set(0, 1.25, 1.5);
+                // Microphone
+                this.micStream = null;
+                this.micWorkletNode = null;
+                this.micContext = null;
+                this.isMicRecording = false;
+                this.micBuffer = [];
+                this.micProcessing = false; // 처리 중 플래그 (중복 방지)
 
-  const controls = new OrbitControls(camera, canvas);
-  controls.target.set(0, 1.25, 0);
-  controls.enableDamping = true;
-  controls.update();
+                // 스트리밍 프레임 큐 (30FPS 재생용)
+                this.streamQueueV1 = [];
+                this.streamQueueV2 = [];
+                this.streamTimeAccum = 0; // 렌더 루프 시간 누적
 
-  scene.add(new THREE.DirectionalLight(0xffffff, 1.0));
-  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+                // TTS
+                this.ttsBlendshapesV1 = null;
+                this.ttsBlendshapesV2 = null;
+                this.ttsAudioElement = null;
 
-  function resize() {
-    const w = canvas.parentElement.clientWidth;
-    const h = canvas.parentElement.clientHeight;
-    if (w > 0 && h > 0) {
-      renderer.setSize(w, h);
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-    }
-  }
-  new ResizeObserver(resize).observe(canvas.parentElement);
-  resize();
+                // Idle 표정 생성기
+                this.idleGenerator = null;
+                this.idleClock = 0;
 
-  return { renderer, scene, camera, controls, canvas };
-}
+                // VAD (Voice Activity Detector)
+                this.vad = null;
 
-const sceneV1 = createScene('canvas-v1');
-const sceneV2 = createScene('canvas-v2');
+                this.init();
+            }
 
-// ================================================================
-// VRM Loading (shared across both scenes)
-// ================================================================
-const gltfLoader = new GLTFLoader();
-gltfLoader.register(p => new VRMLoaderPlugin(p));
-gltfLoader.register(p => new VRMAnimationLoaderPlugin(p));
+            async init() {
+                try {
+                    this.updateStatus('초기화 중...', 'loading');
 
-let vrmV1 = null, vrmV2 = null;
-let mixerV1 = null, mixerV2 = null;
+                    var progressBar = document.getElementById('model-progress');
+                    var progressFill = document.getElementById('progress-fill');
+                    var progressText = document.getElementById('progress-text');
+                    progressBar.style.display = 'block';
 
-async function loadVRMIntoScene(url, sceneObj, lipsyncInstance) {
-  const gltf = await gltfLoader.loadAsync(url);
-  const vrm = gltf.userData.vrm;
-  sceneObj.scene.add(vrm.scene);
-  vrm.scene.rotation.y = Math.PI;
+                    // 1. Dynamic import V1 wrapper
+                    progressText.textContent = 'V1 WASM 모듈 로딩 중...';
+                    progressFill.style.width = '5%';
 
-  const mixer = new THREE.AnimationMixer(vrm.scene);
-  try {
-    const vrmaBytes = lipsyncInstance.getVrmaBytes();
-    if (vrmaBytes?.idle?.length) {
-      const blob = new Blob([vrmaBytes.idle], { type: 'application/octet-stream' });
-      const burl = URL.createObjectURL(blob);
-      const idleGltf = await gltfLoader.loadAsync(burl);
-      URL.revokeObjectURL(burl);
-      const anim = idleGltf.userData.vrmAnimations?.[0];
-      if (anim) mixer.clipAction(createVRMAnimationClip(anim, vrm)).play();
-    }
-  } catch (e) { console.warn('VRMA skip:', e.message); }
+                    var v1Module = await import('https://cdn.jsdelivr.net/npm/@goodganglabs/lipsync-wasm-v1@0.3.9/lipsync-wasm-wrapper.js');
+                    var LipSyncV1 = v1Module.LipSyncWasmWrapper;
+                    this.wrapperV1 = new LipSyncV1({ wasmPath: 'https://cdn.jsdelivr.net/npm/@goodganglabs/lipsync-wasm-v1@0.3.9/lipsync_wasm_v1.js' });
 
-  return { vrm, mixer };
-}
+                    var v1InitResult = await this.wrapperV1.init({
+                        onProgress: function(stage, pct) {
+                            if (stage === 'wasm') {
+                                progressText.textContent = 'V1 WASM 로딩 중...';
+                                progressFill.style.width = (5 + pct * 0.1) + '%';
+                            } else if (stage === 'decrypt') {
+                                progressText.textContent = 'V1 모델 복호화 중...';
+                                progressFill.style.width = (15 + pct * 0.05) + '%';
+                            } else if (stage === 'onnx') {
+                                progressText.textContent = 'V1 ONNX 세션 생성 중...';
+                                progressFill.style.width = (20 + pct * 0.1) + '%';
+                            } else if (stage === 'onnx-fallback') {
+                                progressText.textContent = 'V1 ONNX 실패 - 휴리스틱 모드';
+                            }
+                        }
+                    });
 
-// VRM drop handler (drops onto either pane, loads into both)
-for (const id of ['vrm-drop-v1', 'vrm-drop-v2']) {
-  const el = document.getElementById(id);
-  const parent = el.parentElement;
-  parent.addEventListener('dragover', e => e.preventDefault());
-  parent.addEventListener('drop', async e => {
-    e.preventDefault();
-    const file = [...e.dataTransfer.files].find(f => f.name.endsWith('.vrm'));
-    if (!file) return;
-    const url = URL.createObjectURL(file);
+                    this.updateBadge('v1', this.wrapperV1);
 
-    // Load into both scenes
-    if (lsV1?.ready) {
-      if (vrmV1) sceneV1.scene.remove(vrmV1.scene);
-      const r = await loadVRMIntoScene(url, sceneV1, lsV1);
-      vrmV1 = r.vrm; mixerV1 = r.mixer;
-      document.getElementById('vrm-drop-v1').classList.add('hidden');
-    }
-    if (lsV2?.ready) {
-      if (vrmV2) sceneV2.scene.remove(vrmV2.scene);
-      const r = await loadVRMIntoScene(url, sceneV2, lsV2);
-      vrmV2 = r.vrm; mixerV2 = r.mixer;
-      document.getElementById('vrm-drop-v2').classList.add('hidden');
-    }
-  });
-}
+                    // 2. Dynamic import V2 wrapper
+                    progressText.textContent = 'V2 WASM 모듈 로딩 중...';
+                    progressFill.style.width = '35%';
 
-// ================================================================
-// Initialize both engines
-// ================================================================
-let lsV1 = null, lsV2 = null;
-const queueV1 = [], queueV2 = [];
+                    var v2Module = await import('https://cdn.jsdelivr.net/npm/@goodganglabs/lipsync-wasm-v2@0.3.9/lipsync-wasm-wrapper.js');
+                    var LipSyncV2 = v2Module.LipSyncWasmWrapper;
+                    this.wrapperV2 = new LipSyncV2({ wasmPath: 'https://cdn.jsdelivr.net/npm/@goodganglabs/lipsync-wasm-v2@0.3.9/lipsync_wasm_v2.js' });
 
-async function initEngines() {
-  const overlay = document.getElementById('init-overlay');
+                    var v2InitResult = await this.wrapperV2.init({
+                        onProgress: function(stage, pct) {
+                            if (stage === 'wasm') {
+                                progressText.textContent = 'V2 WASM 로딩 중...';
+                                progressFill.style.width = (35 + pct * 0.1) + '%';
+                            } else if (stage === 'decrypt') {
+                                progressText.textContent = 'V2 모델 복호화 중...';
+                                progressFill.style.width = (45 + pct * 0.05) + '%';
+                            } else if (stage === 'onnx') {
+                                progressText.textContent = 'V2 ONNX 세션 생성 중...';
+                                progressFill.style.width = (50 + pct * 0.1) + '%';
+                            } else if (stage === 'onnx-fallback') {
+                                progressText.textContent = 'V2 ONNX 실패';
+                            }
+                        }
+                    });
 
-  // Load both in parallel
-  const [v1Mod, v2Mod] = await Promise.all([
-    import(`${CDN_V1}/lipsync-wasm-wrapper.js`),
-    import(`${CDN_V2}/lipsync-wasm-wrapper.js`),
-  ]);
+                    this.updateBadge('v2', this.wrapperV2);
 
-  lsV1 = new v1Mod.LipSyncWasmWrapper({ wasmPath: `${CDN_V1}/lipsync_wasm_v1.js` });
-  lsV2 = new v2Mod.LipSyncWasmWrapper({ wasmPath: `${CDN_V2}/lipsync_wasm_v2.js` });
+                    // 3. VRM 아바타 2개 로드 (병렬)
+                    progressText.textContent = '3D 아바타 로딩 중 (x2)...';
+                    progressFill.style.width = '65%';
 
-  // Init both in parallel
-  await Promise.all([
-    lsV1.init({
-      onProgress: (stage, pct) => {
-        document.getElementById('init-v1-fill').style.width = pct + '%';
-        document.getElementById('init-v1-label').textContent = `V1 — ${stage} ${pct}%`;
-      },
-    }).then(() => {
-      document.getElementById('badge-v1').textContent = 'V1 Ready';
-    }),
-    lsV2.init({
-      onProgress: (stage, pct) => {
-        document.getElementById('init-v2-fill').style.width = pct + '%';
-        document.getElementById('init-v2-label').textContent = `V2 — ${stage} ${pct}%`;
-      },
-    }).then(() => {
-      document.getElementById('badge-v2').textContent = 'V2 Ready';
-    }),
-  ]);
+                    await Promise.all([
+                        this.initAvatar('v1'),
+                        this.initAvatar('v2')
+                    ]);
 
-  overlay.classList.add('hidden');
-  document.getElementById('mic-btn').disabled = false;
-}
+                    progressFill.style.width = '100%';
+                    progressText.textContent = '준비 완료';
 
-initEngines().catch(err => {
-  console.error('Init error:', err);
-  document.getElementById('init-overlay').innerHTML = `<div style="color:#ef4444;text-align:center"><h3>Initialization Error</h3><p style="font-size:0.85rem;margin-top:8px">${err.message}</p></div>`;
-});
+                    var v1Mode = this.wrapperV1.mode === 'onnx' ? 'ONNX' : 'Heuristic';
+                    var v2Mode = this.wrapperV2.mode === 'v2-onnx' ? 'ONNX' : 'N/A';
+                    this.updateStatus('준비 완료 (V1:' + v1Mode + ', V2:' + v2Mode + ')', 'ready');
 
-// ================================================================
-// Audio File — process through both engines
-// ================================================================
-document.getElementById('audio-input').addEventListener('change', async e => {
-  const file = e.target.files[0];
-  if (!file || !lsV1?.ready || !lsV2?.ready) return;
+                    setTimeout(function() { progressBar.style.display = 'none'; }, 1000);
 
-  // Process V1
-  const t1 = performance.now();
-  const r1 = await lsV1.processFile(file);
-  const e1 = performance.now() - t1;
-  const dur1 = r1.frame_count / r1.fps;
-  document.getElementById('s-v1-frames').textContent = r1.frame_count;
-  document.getElementById('s-v1-wasm').textContent = (e1/1000).toFixed(2)+'s';
-  document.getElementById('s-v1-rtf').textContent = (e1/1000/dur1).toFixed(2)+'x';
+                    this.initUI();
+                    this.initBlendshapeGrid('v1');
+                    this.initBlendshapeGrid('v2');
+                    this.startRenderLoop();
 
-  // Process V2
-  const t2 = performance.now();
-  const r2 = await lsV2.processFile(file);
-  const e2 = performance.now() - t2;
-  const dur2 = r2.frame_count / r2.fps;
-  document.getElementById('s-v2-frames').textContent = r2.frame_count;
-  document.getElementById('s-v2-wasm').textContent = (e2/1000).toFixed(2)+'s';
-  document.getElementById('s-v2-rtf').textContent = (e2/1000/dur2).toFixed(2)+'x';
+                    // Idle 표정 생성기 초기화 (advanced: direct WASM access)
+                    this.idleGenerator = new this.wrapperV1.wasmModule.IdleExpressionGenerator();
+                    this.idleClock = 0;
 
-  // Queue frames
-  queueV1.length = 0; queueV2.length = 0;
-  for (let i = 0; i < r1.frame_count; i++) queueV1.push(lsV1.getFrame(r1, i));
-  for (let i = 0; i < r2.frame_count; i++) queueV2.push(lsV2.getFrame(r2, i));
+                    // VAD는 마이크 시작 시 자동 캘리브레이션으로 생성
+                    this.vad = null;
 
-  // Play audio
-  const audioCtx = new AudioContext();
-  const buf = await file.arrayBuffer();
-  const audioBuf = await audioCtx.decodeAudioData(buf);
-  const src = audioCtx.createBufferSource();
-  src.buffer = audioBuf; src.connect(audioCtx.destination); src.start();
-});
+                    // 기본 VRMA 본 애니메이션 자동 로드 (WASM 임베딩 바이트에서)
+                    this.loadVRMAAnimations().then(function() {
+                        console.log('VRMA 본 애니메이션 로드 완료 (idle + speaking)');
+                    }).catch(function(err) {
+                        console.warn('VRMA 로드 실패 (본 애니메이션 없이 진행):', err);
+                    });
 
-// ================================================================
-// Microphone Streaming
-// ================================================================
-let micActive = false, audioCtx = null, worklet = null;
-const micBtn = document.getElementById('mic-btn');
+                } catch (error) {
+                    console.error('초기화 실패:', error);
+                    this.updateStatus('오류: ' + error.message, 'error');
+                }
+            }
 
-micBtn.addEventListener('click', async () => {
-  if (micActive) {
-    if (worklet) { worklet.disconnect(); worklet = null; }
-    if (audioCtx) { audioCtx.close(); audioCtx = null; }
-    micActive = false;
-    micBtn.classList.remove('active');
-    micBtn.innerHTML = '<span>🎤</span> Mic';
-    lsV1.reset(); lsV2.reset();
-    return;
-  }
-  if (!lsV1?.ready || !lsV2?.ready) return;
+            updateBadge(version, wrapper) {
+                var badge = document.getElementById('badge-' + version);
+                var label = version.toUpperCase();
+                if (wrapper.mode && wrapper.mode !== 'heuristic') {
+                    if (wrapper.modelVersion === 'v2') {
+                        badge.textContent = label + ': Student';
+                        badge.className = 'mode-badge mode-v2';
+                    } else {
+                        badge.textContent = label + ': ONNX';
+                        badge.className = 'mode-badge mode-v1';
+                    }
+                } else {
+                    badge.textContent = label + ': Heuristic';
+                    badge.className = 'mode-badge mode-heuristic';
+                }
+            }
 
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  audioCtx = new AudioContext({ sampleRate: 16000 });
-  const source = audioCtx.createMediaStreamSource(stream);
+            // ── 3D Avatar (VRM) ────────────────────────────────────
 
-  const code = `
-    class P extends AudioWorkletProcessor {
-      constructor() { super(); this._b = []; }
-      process(inputs) {
-        const c = inputs[0]?.[0];
-        if (c) { for (let i=0;i<c.length;i++) this._b.push(c[i]); if(this._b.length>=1600){this.port.postMessage(new Float32Array(this._b.splice(0,1600)));} }
-        return true;
-      }
-    }
-    registerProcessor('pcm-cap', P);
-  `;
-  const blob = new Blob([code], { type: 'application/javascript' });
-  const burl = URL.createObjectURL(blob);
-  await audioCtx.audioWorklet.addModule(burl);
-  URL.revokeObjectURL(burl);
+            async initAvatar(version) {
+                var canvasId = 'avatar-canvas-' + version;
+                var canvas = document.getElementById(canvasId);
+                var rect = canvas.getBoundingClientRect();
 
-  worklet = new AudioWorkletNode(audioCtx, 'pcm-cap');
-  source.connect(worklet);
+                var scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x1a1a2e);
 
-  worklet.port.onmessage = async e => {
-    const chunk = e.data;
-    const [r1, r2] = await Promise.all([
-      lsV1.processAudioChunk(chunk),
-      lsV2.processAudioChunk(chunk),
-    ]);
-    if (r1) for (let i = 0; i < r1.frame_count; i++) queueV1.push(lsV1.getFrame(r1, i));
-    if (r2) for (let i = 0; i < r2.frame_count; i++) queueV2.push(lsV2.getFrame(r2, i));
-  };
+                var camera = new THREE.PerspectiveCamera(30, rect.width / rect.height, 0.1, 100);
+                camera.position.set(0, 1.25, 0.5);
 
-  micActive = true;
-  micBtn.classList.add('active');
-  micBtn.innerHTML = '<span>⏹️</span> Stop';
-});
+                var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+                renderer.setSize(rect.width, rect.height);
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                renderer.outputColorSpace = THREE.SRGBColorSpace;
+                renderer.toneMapping = THREE.LinearToneMapping;
+                renderer.toneMappingExposure = 1.0;
 
-// ================================================================
-// Apply blendshapes
-// ================================================================
-function applyToVRM(vrm, frame) {
-  if (!vrm?.expressionManager) return;
-  for (let i = 0; i < Math.min(frame.length, ARKIT_52.length); i++) {
-    vrm.expressionManager.setValue(ARKIT_52[i], frame[i]);
-  }
-}
+                var controls = new OrbitControls(camera, canvas);
+                controls.target.set(0, 1.25, 0);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.1;
+                controls.minDistance = 0.3;
+                controls.maxDistance = 3;
+                controls.update();
 
-// ================================================================
-// Render Loop
-// ================================================================
-const clock = new THREE.Clock();
-let ft = 0;
-const FI = 1/30;
+                scene.add(new THREE.AmbientLight(0xffffff, 2.0));
+                var dirLight = new THREE.DirectionalLight(0xFFFBFC, 1.1);
+                dirLight.position.set(1, 3, 2);
+                scene.add(dirLight);
 
-function render() {
-  requestAnimationFrame(render);
-  const dt = clock.getDelta();
-  ft += dt;
+                // VRM 로드
+                var loader = new GLTFLoader();
+                loader.register(function(parser) { return new VRMLoaderPlugin(parser); });
 
-  if (ft >= FI) {
-    if (queueV1.length > 0) { const f = queueV1.shift(); applyToVRM(vrmV1, f); updateBars(barsV1, f); }
-    if (queueV2.length > 0) { const f = queueV2.shift(); applyToVRM(vrmV2, f); updateBars(barsV2, f); }
-    ft = 0;
-  }
+                var gltf = await new Promise(function(resolve, reject) {
+                    loader.load('./NC_PinkSkirt_7.vrm', resolve, undefined, reject);
+                });
 
-  if (vrmV1) vrmV1.update(dt);
-  if (vrmV2) vrmV2.update(dt);
-  if (mixerV1) mixerV1.update(dt);
-  if (mixerV2) mixerV2.update(dt);
+                var vrm = gltf.userData.vrm;
+                VRMUtils.removeUnnecessaryVertices(gltf.scene);
+                VRMUtils.removeUnnecessaryJoints(gltf.scene);
 
-  sceneV1.controls.update();
-  sceneV2.controls.update();
-  sceneV1.renderer.render(sceneV1.scene, sceneV1.camera);
-  sceneV2.renderer.render(sceneV2.scene, sceneV2.camera);
-}
-render();
-</script>
+                if (vrm.meta && vrm.meta.metaVersion !== '1') {
+                    vrm.scene.rotation.y = Math.PI;
+                }
+
+                scene.add(vrm.scene);
+
+                // Store per version
+                if (version === 'v1') {
+                    this.sceneV1 = scene;
+                    this.cameraV1 = camera;
+                    this.rendererV1 = renderer;
+                    this.controlsV1 = controls;
+                    this.vrmV1 = vrm;
+                    this.mixerV1 = new THREE.AnimationMixer(vrm.scene);
+                } else {
+                    this.sceneV2 = scene;
+                    this.cameraV2 = camera;
+                    this.rendererV2 = renderer;
+                    this.controlsV2 = controls;
+                    this.vrmV2 = vrm;
+                    this.mixerV2 = new THREE.AnimationMixer(vrm.scene);
+                }
+
+                // Resize
+                var self = this;
+                var resizeObserver = new ResizeObserver(function() {
+                    var r = canvas.getBoundingClientRect();
+                    camera.aspect = r.width / r.height;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(r.width, r.height);
+                });
+                resizeObserver.observe(canvas.parentElement);
+            }
+
+            async loadVRMAFile(url) {
+                var loader = new GLTFLoader();
+                loader.register(function(parser) { return new VRMAnimationLoaderPlugin(parser); });
+                var gltf = await new Promise(function(resolve, reject) {
+                    loader.load(url, resolve, undefined, reject);
+                });
+                var vrmAnimation = gltf.userData.vrmAnimations[0];
+                if (!vrmAnimation) throw new Error('VRMA 파일에 애니메이션이 없습니다.');
+                return vrmAnimation;
+            }
+
+            /**
+             * Uint8Array를 Blob URL로 변환하여 GLTFLoader로 로드
+             */
+            async loadVRMAFromBytes(bytes) {
+                var blob = new Blob([bytes], { type: 'application/octet-stream' });
+                var url = URL.createObjectURL(blob);
+                try {
+                    var vrmAnimation = await this.loadVRMAFile(url);
+                    return vrmAnimation;
+                } finally {
+                    URL.revokeObjectURL(url);
+                }
+            }
+
+            /**
+             * VRM + AnimationMixer에 idle/speaking 액션을 설정하는 공통 함수
+             */
+            _setupMixerActions(mixer, vrm, idleVrmAnim, speakingVrmAnim) {
+                mixer.stopAllAction();
+
+                var idleClip = createVRMAnimationClip(idleVrmAnim, vrm);
+                var speakingClip = createVRMAnimationClip(speakingVrmAnim, vrm);
+
+                var idleAction = mixer.clipAction(idleClip);
+                var speakingAction = mixer.clipAction(speakingClip);
+
+                idleAction.setLoop(THREE.LoopRepeat);
+                speakingAction.setLoop(THREE.LoopRepeat);
+
+                idleAction.setEffectiveWeight(1);
+                idleAction.play();
+
+                speakingAction.setEffectiveWeight(0);
+                speakingAction.play();
+
+                return { idleAction, speakingAction };
+            }
+
+            async loadVRMAAnimations() {
+                // V1 WASM에서 임베딩된 VRMA 바이트 가져오기
+                if (!this.wrapperV1) return;
+                var vrmaData = this.wrapperV1.getVrmaBytes();
+                var idleBytes = vrmaData.idle;
+                var speakingBytes = vrmaData.speaking;
+
+                var idleVrmAnim = await this.loadVRMAFromBytes(idleBytes);
+                var speakingVrmAnim = await this.loadVRMAFromBytes(speakingBytes);
+
+                // V1: AnimationMixer 설정
+                if (this.vrmV1 && this.mixerV1) {
+                    var v1Actions = this._setupMixerActions(this.mixerV1, this.vrmV1, idleVrmAnim, speakingVrmAnim);
+                    this.idleActionV1 = v1Actions.idleAction;
+                    this.speakingActionV1 = v1Actions.speakingAction;
+                    this.isSpeakingV1 = false;
+                }
+
+                // V2: 동일한 VRMA 데이터로 AnimationMixer 설정
+                if (this.vrmV2 && this.mixerV2) {
+                    var v2Actions = this._setupMixerActions(this.mixerV2, this.vrmV2, idleVrmAnim, speakingVrmAnim);
+                    this.idleActionV2 = v2Actions.idleAction;
+                    this.speakingActionV2 = v2Actions.speakingAction;
+                    this.isSpeakingV2 = false;
+                }
+            }
+
+            // idle → speaking 전환 요청
+            transitionToSpeaking(version, instant) {
+                if (version === 'v1') {
+                    this.isSpeakingV1 = true;
+                    if (instant) this.crossFadeProgressV1 = 1;
+                } else {
+                    this.isSpeakingV2 = true;
+                    if (instant) this.crossFadeProgressV2 = 1;
+                }
+            }
+
+            // speaking → idle 전환 요청
+            transitionToIdle(version) {
+                if (version === 'v1') {
+                    this.isSpeakingV1 = false;
+                } else {
+                    this.isSpeakingV2 = false;
+                }
+            }
+
+            // 매 프레임 호출: idle/speaking weight를 부드럽게 보간
+            _updateBoneWeights(delta) {
+                var speed = 1.0 / this.crossFadeDuration;
+
+                // V1: progress 선형 진행 → smoothstep으로 weight 적용
+                this.crossFadeProgressV1 = this._advanceProgress(this.crossFadeProgressV1, this.isSpeakingV1, delta, speed);
+                this._applySmoothedWeights(this.idleActionV1, this.speakingActionV1, this.crossFadeProgressV1);
+
+                // V2
+                this.crossFadeProgressV2 = this._advanceProgress(this.crossFadeProgressV2, this.isSpeakingV2, delta, speed);
+                this._applySmoothedWeights(this.idleActionV2, this.speakingActionV2, this.crossFadeProgressV2);
+            }
+
+            // 선형 진행값(0~1) 업데이트
+            _advanceProgress(progress, isSpeaking, delta, speed) {
+                var target = isSpeaking ? 1 : 0;
+                if (Math.abs(progress - target) < 0.001) return target;
+
+                var step = delta * speed;
+                if (target > progress) {
+                    return Math.min(progress + step, 1);
+                } else {
+                    return Math.max(progress - step, 0);
+                }
+            }
+
+            // 진행값에 smoothstep 적용 후 weight 설정
+            _applySmoothedWeights(idleAction, speakingAction, progress) {
+                if (!idleAction || !speakingAction) return;
+
+                // smoothstep: 시작/끝이 부드럽게
+                var t = progress;
+                var w = t * t * (3 - 2 * t);
+
+                speakingAction.setEffectiveWeight(w);
+                idleAction.setEffectiveWeight(1 - w);
+            }
+
+            // 외부 VRMA 파일 로드 (VRMA 로드 버튼용 — speaking으로 교체)
+            async loadVRMA(url) {
+                var vrmAnimation = await this.loadVRMAFile(url);
+
+                // V1: AnimationMixer speaking 액션 교체
+                this._replaceSpeakingAction(this.mixerV1, this.vrmV1, vrmAnimation, 'v1');
+
+                // V2: AnimationMixer speaking 액션 교체
+                this._replaceSpeakingAction(this.mixerV2, this.vrmV2, vrmAnimation, 'v2');
+            }
+
+            _replaceSpeakingAction(mixer, vrm, vrmAnimation, version) {
+                if (!mixer || !vrm) return;
+                var clip = createVRMAnimationClip(vrmAnimation, vrm);
+                var newAction = mixer.clipAction(clip);
+                newAction.setLoop(THREE.LoopRepeat);
+
+                var oldAction = (version === 'v1') ? this.speakingActionV1 : this.speakingActionV2;
+                if (oldAction) {
+                    newAction.setEffectiveWeight(oldAction.getEffectiveWeight());
+                    newAction.time = oldAction.time;
+                    oldAction.stop();
+                }
+                newAction.play();
+
+                if (version === 'v1') {
+                    this.speakingActionV1 = newAction;
+                } else {
+                    this.speakingActionV2 = newAction;
+                }
+            }
+
+            startRenderLoop() {
+                var self = this;
+                var clock = new THREE.Clock();
+                var frameInterval = 1.0 / 30.0; // 30FPS 소비 간격
+
+                var render = function() {
+                    requestAnimationFrame(render);
+                    var delta = clock.getDelta();
+
+                    if (self.controlsV1) self.controlsV1.update();
+                    if (self.controlsV2) self.controlsV2.update();
+
+                    // 1) Weight 보간 (V1/V2 모두 AnimationMixer)
+                    self._updateBoneWeights(delta);
+
+                    // 2) V1: AnimationMixer 업데이트
+                    if (self.mixerV1) self.mixerV1.update(delta);
+
+                    // 3) V2: AnimationMixer 업데이트
+                    if (self.mixerV2) self.mixerV2.update(delta);
+
+                    // 4) 스트리밍 큐에서 30FPS로 프레임 소비 (블렌드쉐입 적용)
+                    //    마이크 종료 후에도 큐에 남은 프레임이 있으면 계속 소비
+                    if (self.isMicRecording || self.streamQueueV1.length > 0 || self.streamQueueV2.length > 0) {
+                        self.streamTimeAccum += delta;
+                        while (self.streamTimeAccum >= frameInterval) {
+                            self.streamTimeAccum -= frameInterval;
+
+                            if (self.streamQueueV1.length > 0) {
+                                var bsV1 = self.streamQueueV1.shift();
+                                if (self.smoothingEnabledV1 && self.prevFrameV1) {
+                                    bsV1 = self.applySmoothing(bsV1, self.prevFrameV1, self.smoothingAlpha);
+                                }
+                                self.prevFrameV1 = bsV1;
+                                self.updateBlendshapeUI('v1', bsV1);
+                                self.applyBlendshapes(self.vrmV1, bsV1);
+                            } else if (self.prevFrameV1) {
+                                // 큐 비어도 이전 프레임 유지 (idle 전환이 대신 처리)
+                                self.applyBlendshapes(self.vrmV1, self.prevFrameV1);
+                            }
+
+                            if (self.streamQueueV2.length > 0) {
+                                var frameV2 = self.streamQueueV2.shift();
+                                if (self.smoothingEnabledV2 && self.prevFrameV2) {
+                                    frameV2 = self.applySmoothing(frameV2, self.prevFrameV2, self.smoothingAlpha);
+                                }
+                                self.prevFrameV2 = frameV2;
+                                self.updateBlendshapeUI('v2', frameV2);
+                                self.applyBlendshapes(self.vrmV2, frameV2);
+                            } else if (self.prevFrameV2) {
+                                // 큐 비어도 이전 프레임 유지
+                                self.applyBlendshapes(self.vrmV2, self.prevFrameV2);
+                            }
+                        }
+
+                        document.getElementById('frame-count-v1').textContent = self.streamQueueV1.length + ' queued';
+                        document.getElementById('frame-count-v2').textContent = self.streamQueueV2.length + ' queued';
+                        document.getElementById('fps-v1').textContent = '30';
+                        document.getElementById('fps-v2').textContent = '30';
+                    }
+
+                    // 5) Idle 표정 적용 (마이크/파일/TTS 재생 중이 아닐 때, 큐도 비어있을 때)
+                    if (!self.isMicRecording && !self.animationId && self.idleGenerator
+                        && self.streamQueueV1.length === 0 && self.streamQueueV2.length === 0) {
+                        self.idleClock += delta;
+                        var idleFrame = self.idleGenerator.get_frame(self.idleClock);
+
+                        // prevFrame이 있으면 립싱크→idle 보간 (느린 전환)
+                        if (self.prevFrameV1) {
+                            idleFrame = self.applySmoothing(idleFrame, self.prevFrameV1, 0.15);
+                            self.prevFrameV1 = idleFrame;
+                            // prevFrame이 idle에 충분히 수렴하면 해제
+                            var maxDiff = 0;
+                            for (var di = 0; di < idleFrame.length; di++) {
+                                var d = Math.abs(idleFrame[di] - (self.idleGenerator.get_frame(self.idleClock)[di] || 0));
+                                if (d > maxDiff) maxDiff = d;
+                            }
+                            if (maxDiff < 0.005) self.prevFrameV1 = null;
+                        }
+
+                        self.applyBlendshapes(self.vrmV1, idleFrame);
+                        self.applyBlendshapes(self.vrmV2, idleFrame);
+
+                        // V2 prevFrame도 동기화
+                        if (self.prevFrameV2) {
+                            self.prevFrameV2 = idleFrame;
+                            // V1과 동일 수렴 조건
+                            var maxDiff2 = 0;
+                            var refFrame = self.idleGenerator.get_frame(self.idleClock);
+                            for (var di2 = 0; di2 < idleFrame.length; di2++) {
+                                var d2 = Math.abs(idleFrame[di2] - (refFrame[di2] || 0));
+                                if (d2 > maxDiff2) maxDiff2 = d2;
+                            }
+                            if (maxDiff2 < 0.005) self.prevFrameV2 = null;
+                        }
+                    }
+
+                    // 6) VRM 최종 업데이트 (본 + 표정 반영)
+                    if (self.vrmV1) self.vrmV1.update(delta);
+                    if (self.vrmV2) self.vrmV2.update(delta);
+
+                    if (self.rendererV1 && self.sceneV1 && self.cameraV1) {
+                        self.rendererV1.render(self.sceneV1, self.cameraV1);
+                    }
+                    if (self.rendererV2 && self.sceneV2 && self.cameraV2) {
+                        self.rendererV2.render(self.sceneV2, self.cameraV2);
+                    }
+                };
+                render();
+            }
+
+            applyBlendshapes(vrm, frame) {
+                if (!vrm) return;
+
+                if (vrm.expressionManager) {
+                    for (var sysIdxStr in SYSTEM_INDEX_TO_BLENDSHAPE) {
+                        var sysIdx = parseInt(sysIdxStr);
+                        var names = SYSTEM_INDEX_TO_BLENDSHAPE[sysIdxStr];
+                        var value = frame[sysIdx] || 0;
+                        for (var n = 0; n < names.length; n++) {
+                            vrm.expressionManager.setValue(names[n], value);
+                        }
+                    }
+                    return;
+                }
+
+                if (vrm.blendShapeProxy) {
+                    for (var sysIdxStr in SYSTEM_INDEX_TO_BLENDSHAPE) {
+                        var sysIdx = parseInt(sysIdxStr);
+                        var names = SYSTEM_INDEX_TO_BLENDSHAPE[sysIdxStr];
+                        var value = frame[sysIdx] || 0;
+                        for (var n = 0; n < names.length; n++) {
+                            vrm.blendShapeProxy.setValue(names[n], value);
+                        }
+                    }
+                    vrm.blendShapeProxy.update();
+                    return;
+                }
+
+                vrm.scene.traverse(function(child) {
+                    if (!child.isMesh || !child.morphTargetDictionary || !child.morphTargetInfluences) return;
+                    for (var sysIdxStr in SYSTEM_INDEX_TO_BLENDSHAPE) {
+                        var sysIdx = parseInt(sysIdxStr);
+                        var names = SYSTEM_INDEX_TO_BLENDSHAPE[sysIdxStr];
+                        var value = frame[sysIdx] || 0;
+                        for (var n = 0; n < names.length; n++) {
+                            var morphIdx = child.morphTargetDictionary[names[n]];
+                            if (morphIdx !== undefined) {
+                                child.morphTargetInfluences[morphIdx] = value;
+                            }
+                        }
+                    }
+                });
+            }
+
+            resetAvatar(vrm) {
+                if (!vrm) return;
+
+                if (vrm.expressionManager) {
+                    for (var sysIdxStr in SYSTEM_INDEX_TO_BLENDSHAPE) {
+                        var names = SYSTEM_INDEX_TO_BLENDSHAPE[sysIdxStr];
+                        for (var n = 0; n < names.length; n++) {
+                            vrm.expressionManager.setValue(names[n], 0);
+                        }
+                    }
+                    return;
+                }
+
+                if (vrm.blendShapeProxy) {
+                    for (var sysIdxStr in SYSTEM_INDEX_TO_BLENDSHAPE) {
+                        var names = SYSTEM_INDEX_TO_BLENDSHAPE[sysIdxStr];
+                        for (var n = 0; n < names.length; n++) {
+                            vrm.blendShapeProxy.setValue(names[n], 0);
+                        }
+                    }
+                    vrm.blendShapeProxy.update();
+                    return;
+                }
+
+                vrm.scene.traverse(function(child) {
+                    if (child.isMesh && child.morphTargetInfluences) {
+                        child.morphTargetInfluences.fill(0);
+                    }
+                });
+            }
+
+            // ── Microphone ─────────────────────────────────────────
+
+            async toggleMic() {
+                if (this.isMicRecording) { this.stopMic(); } else { await this.startMic(); }
+            }
+
+            async startMic() {
+                try {
+                    this.micStream = await navigator.mediaDevices.getUserMedia({
+                        audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true }
+                    });
+                    this.micContext = new AudioContext({ sampleRate: 16000 });
+                    var source = this.micContext.createMediaStreamSource(this.micStream);
+
+                    // AudioWorklet: 128샘플(8ms) 단위로 메인 스레드에 전달
+                    var workletCode = `
+                        class MicProcessor extends AudioWorkletProcessor {
+                            constructor() {
+                                super();
+                                this.buffer = [];
+                                this.bufferLen = 0;
+                                this.TARGET = 1600; // 100ms @ 16kHz — 적당한 배치 크기
+                            }
+                            process(inputs) {
+                                var input = inputs[0];
+                                if (input.length > 0 && input[0].length > 0) {
+                                    this.buffer.push(new Float32Array(input[0]));
+                                    this.bufferLen += input[0].length;
+                                    if (this.bufferLen >= this.TARGET) {
+                                        // 축적된 버퍼 합치기
+                                        var merged = new Float32Array(this.bufferLen);
+                                        var off = 0;
+                                        for (var i = 0; i < this.buffer.length; i++) {
+                                            merged.set(this.buffer[i], off);
+                                            off += this.buffer[i].length;
+                                        }
+                                        this.port.postMessage(merged);
+                                        this.buffer = [];
+                                        this.bufferLen = 0;
+                                    }
+                                }
+                                return true;
+                            }
+                        }
+                        registerProcessor('mic-processor', MicProcessor);
+                    `;
+                    var blob = new Blob([workletCode], { type: 'application/javascript' });
+                    var url = URL.createObjectURL(blob);
+                    await this.micContext.audioWorklet.addModule(url);
+                    URL.revokeObjectURL(url);
+
+                    this.micWorkletNode = new AudioWorkletNode(this.micContext, 'mic-processor');
+                    this.micBuffer = [];
+                    this.micProcessing = false;
+
+                    var self = this;
+                    this.micWorkletNode.port.onmessage = function(e) {
+                        self.micBuffer.push(e.data);
+                        // 이전 처리가 끝났으면 즉시 처리 시작
+                        if (!self.micProcessing) {
+                            self.processMicBuffer();
+                        }
+                    };
+
+                    source.connect(this.micWorkletNode);
+                    this.micWorkletNode.connect(this.micContext.destination);
+                    this.isMicRecording = true;
+
+                    // 캘리브레이션 모드 시작
+                    this.vadCalibrating = true;
+                    this.vadCalibrationSamples = [];
+                    this.vadCalibrationStart = performance.now();
+                    this.vad = null;
+
+                    document.getElementById('mic-btn').textContent = '녹음 중지';
+                    document.getElementById('mic-btn').classList.add('recording');
+                    this.updateStatus('환경 소음 측정 중... (1초)', 'processing');
+                } catch (err) {
+                    console.error('마이크 오류:', err);
+                    this.updateStatus('마이크 오류: ' + err.message, 'error');
+                }
+            }
+
+            async processMicBuffer() {
+                if (this.micBuffer.length === 0) return;
+                this.micProcessing = true;
+
+                try {
+                    // 현재 축적된 버퍼 모두 가져오기
+                    var chunks = this.micBuffer.splice(0);
+                    var totalLen = 0;
+                    for (var i = 0; i < chunks.length; i++) totalLen += chunks[i].length;
+                    var audio = new Float32Array(totalLen);
+                    var offset = 0;
+                    for (var i = 0; i < chunks.length; i++) { audio.set(chunks[i], offset); offset += chunks[i].length; }
+
+                    // 캘리브레이션 중이면 RMS만 수집
+                    if (this.vadCalibrating) {
+                        var rms = this._calculateRMS(audio);
+                        this.vadCalibrationSamples.push(rms);
+
+                        var elapsed = (performance.now() - this.vadCalibrationStart) / 1000;
+                        if (elapsed >= 1.0) {
+                            this._finalizeVADCalibration();
+                        }
+                        this.micProcessing = false;
+                        if (this.micBuffer.length > 0 && this.isMicRecording) {
+                            this.processMicBuffer();
+                        }
+                        return;
+                    }
+
+                    var self = this;
+
+                    // VAD 판단: speaking 여부에 따라 본 애니메이션 전환
+                    if (this.vad) {
+                        var speaking = this.vad.feed_audio(audio);
+                        if (speaking && !this.isSpeakingV1) {
+                            this.transitionToSpeaking('v1');
+                            this.transitionToSpeaking('v2');
+                        }
+                        if (!speaking && this.isSpeakingV1) {
+                            this.transitionToIdle('v1');
+                            this.transitionToIdle('v2');
+                        }
+                    }
+
+                    // VAD speaking 상태를 클로저에서 참조
+                    var vadSpeaking = this.vad ? this.vad.is_speaking() : true;
+
+                    // V1/V2 병렬 처리 — speaking일 때만 큐에 push
+                    var v1Promise = this.wrapperV1.processAudioChunk(audio).then(function(resultV1) {
+                        if (resultV1 && resultV1.frame_count > 0 && vadSpeaking) {
+                            for (var i = 0; i < resultV1.frame_count; i++) {
+                                var frame = self.wrapperV1.getFrame(resultV1, i);
+                                self.streamQueueV1.push(frame);
+                            }
+                        }
+                    }).catch(function(err) { console.error('V1 스트리밍 처리 오류:', err); });
+
+                    var v2Promise = this.wrapperV2.processAudioChunk(audio, false).then(function(resultV2) {
+                        if (resultV2 && resultV2.frame_count > 0 && vadSpeaking) {
+                            for (var i = 0; i < resultV2.frame_count; i++) {
+                                self.streamQueueV2.push(self.wrapperV2.getFrame(resultV2, i));
+                            }
+                        }
+                    }).catch(function(err) { console.error('V2 스트리밍 처리 오류:', err); });
+
+                    await Promise.all([v1Promise, v2Promise]);
+                } finally {
+                    this.micProcessing = false;
+                    // 처리 중에 새 버퍼가 쌓였으면 재귀 처리
+                    if (this.micBuffer.length > 0 && this.isMicRecording) {
+                        this.processMicBuffer();
+                    }
+                }
+            }
+
+            stopMic() {
+                if (this.micWorkletNode) { this.micWorkletNode.disconnect(); this.micWorkletNode = null; }
+                if (this.micContext) { this.micContext.close(); this.micContext = null; }
+                if (this.micStream) { this.micStream.getTracks().forEach(function(t) { t.stop(); }); this.micStream = null; }
+                this.micBuffer = [];
+                this.isMicRecording = false;
+                this.vadCalibrating = false;
+                this.vadCalibrationSamples = null;
+                // 큐는 비우지 않음 — 남은 프레임을 렌더 루프에서 소비하여 자연스럽게 종료
+                // this.streamQueueV1 = [];
+                // this.streamQueueV2 = [];
+                this.streamTimeAccum = 0;
+                // prevFrame 유지 — idle 전환 시 보간에 사용
+                document.getElementById('mic-btn').textContent = '마이크';
+                document.getElementById('mic-btn').classList.remove('recording');
+                this.updateStatus('준비 완료', 'ready');
+
+                // 스트리밍 모드 종료 (reset cleans up auto-managed streaming)
+                this.wrapperV1.reset();
+                this.wrapperV2.reset();
+
+                // 본 애니메이션: speaking → idle 전환
+                this.transitionToIdle('v1');
+                this.transitionToIdle('v2');
+            }
+
+            // ── TTS ────────────────────────────────────────────────
+
+            async generateTTS() {
+                var text = document.getElementById('tts-text').value.trim();
+                var lang = document.getElementById('tts-lang').value;
+                if (!text) { this.updateStatus('텍스트를 입력하세요.', 'error'); return; }
+                if (this.isProcessing) return;
+                if (this.isMicRecording) this.stopMic();
+
+                this.isProcessing = true;
+                var ttsBtn = document.getElementById('tts-btn');
+                ttsBtn.disabled = true;
+                ttsBtn.textContent = '생성 중...';
+                this.updateStatus('TTS 음성 생성 중...', 'processing');
+
+                try {
+                    // 1. TTS API 호출
+                    var ttsRes = await fetch(TTS_API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: text, language: lang })
+                    });
+                    if (!ttsRes.ok) throw new Error('TTS API 오류: ' + ttsRes.status);
+                    var ttsData = await ttsRes.json();
+                    if (!ttsData.success) throw new Error(ttsData.message || 'TTS 생성 실패');
+
+                    // 2. Base64 WAV -> Float32Array (16kHz)
+                    this.updateStatus('V1/V2 블렌드쉐입 생성 중...', 'processing');
+                    var audioBytes = Uint8Array.from(atob(ttsData.audio), function(c) { return c.charCodeAt(0); });
+                    var audioContext = new AudioContext({ sampleRate: 16000 });
+                    var audioBuffer = await audioContext.decodeAudioData(audioBytes.buffer);
+                    var audio = audioBuffer.getChannelData(0);
+                    audioContext.close();
+
+                    var duration = audioBuffer.duration;
+                    document.getElementById('audio-duration').textContent = duration.toFixed(2) + 's';
+                    this.drawWaveform(audio);
+
+                    // 3. V1 WASM pipeline
+                    var startV1 = performance.now();
+                    var wasmResultV1 = await this.wrapperV1.processAudio(audio);
+                    var wasmTimeV1 = performance.now() - startV1;
+
+                    document.getElementById('wasm-time-v1').textContent = wasmTimeV1.toFixed(0) + 'ms';
+                    document.getElementById('total-frames-v1').textContent = wasmResultV1.frame_count;
+                    document.getElementById('realtime-factor-v1').textContent = (wasmTimeV1 / 1000 / duration).toFixed(2) + 'x';
+
+                    // 4. V2 WASM pipeline
+                    var startV2 = performance.now();
+                    var wasmResultV2 = await this.wrapperV2.processAudio(audio);
+                    var wasmTimeV2 = performance.now() - startV2;
+
+                    document.getElementById('wasm-time-v2').textContent = wasmTimeV2.toFixed(0) + 'ms';
+                    document.getElementById('total-frames-v2').textContent = wasmResultV2.frame_count;
+                    document.getElementById('realtime-factor-v2').textContent = (wasmTimeV2 / 1000 / duration).toFixed(2) + 'x';
+
+                    this.ttsBlendshapesV1 = wasmResultV1;
+                    this.ttsBlendshapesV2 = wasmResultV2;
+
+                    // 5. 오디오 플레이어
+                    var audioEl = document.getElementById('tts-audio');
+                    audioEl.src = 'data:audio/wav;base64,' + ttsData.audio;
+                    this.ttsAudioElement = audioEl;
+                    document.getElementById('tts-audio-container').style.display = 'block';
+
+                    // 6. 바로 재생
+                    this.updateStatus(
+                        'TTS 완료 (V1:' + wasmTimeV1.toFixed(0) + 'ms/' + wasmResultV1.frame_count + 'f, V2:' + wasmTimeV2.toFixed(0) + 'ms/' + wasmResultV2.frame_count + 'f)',
+                        'ready'
+                    );
+                    this.playTTSWithSync();
+
+                } catch (err) {
+                    console.error('TTS 오류:', err);
+                    this.updateStatus('TTS 오류: ' + err.message, 'error');
+                } finally {
+                    this.isProcessing = false;
+                    ttsBtn.disabled = false;
+                    ttsBtn.textContent = '음성 생성';
+                }
+            }
+
+            playTTSWithSync() {
+                if ((!this.ttsBlendshapesV1 && !this.ttsBlendshapesV2) || !this.ttsAudioElement) {
+                    this.updateStatus('먼저 TTS 음성을 생성하세요.', 'error');
+                    return;
+                }
+
+                this.startAnimation(this.ttsBlendshapesV1, this.ttsBlendshapesV2, false);
+                this.ttsAudioElement.currentTime = 0;
+                this.ttsAudioElement.play().catch(function(e) { console.warn('오디오 재생 실패:', e.message); });
+                this.updateStatus('오디오 + 립싱크 재생 중...', 'processing');
+            }
+
+            // ── UI ─────────────────────────────────────────────────
+
+            initUI() {
+                var self = this;
+                var dropZone = document.getElementById('drop-zone');
+                var fileInput = document.getElementById('file-input');
+
+                dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('dragover'); });
+                dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('dragover'); });
+                dropZone.addEventListener('drop', function(e) {
+                    e.preventDefault(); dropZone.classList.remove('dragover');
+                    var file = e.dataTransfer.files[0];
+                    if (file && file.type.startsWith('audio/')) self.processFile(file);
+                });
+                fileInput.addEventListener('change', function(e) { if (e.target.files[0]) self.processFile(e.target.files[0]); });
+                document.getElementById('mic-btn').addEventListener('click', function() { self.toggleMic(); });
+                document.getElementById('reset-btn').addEventListener('click', function() { self.reset(); });
+
+                // VRMA 로드
+                document.getElementById('vrma-input').addEventListener('change', function(e) {
+                    var file = e.target.files[0];
+                    if (!file) return;
+                    var url = URL.createObjectURL(file);
+                    self.loadVRMA(url).then(function() {
+                        URL.revokeObjectURL(url);
+                        console.log('VRMA 로드 완료:', file.name);
+                    }).catch(function(err) {
+                        URL.revokeObjectURL(url);
+                        console.error('VRMA 로드 실패:', err);
+                        self.updateStatus('VRMA 오류: ' + err.message, 'error');
+                    });
+                    e.target.value = ''; // 같은 파일 재선택 가능
+                });
+
+                // Smoothing checkboxes
+                document.getElementById('enable-smoothing-v1').addEventListener('change', function(e) {
+                    self.smoothingEnabledV1 = e.target.checked;
+                    if (!e.target.checked) self.prevFrameV1 = null;
+                });
+                document.getElementById('enable-smoothing-v2').addEventListener('change', function(e) {
+                    self.smoothingEnabledV2 = e.target.checked;
+                    if (!e.target.checked) self.prevFrameV2 = null;
+                });
+
+                // TTS
+                document.getElementById('tts-btn').addEventListener('click', function() { self.generateTTS(); });
+                document.getElementById('tts-stream-btn').addEventListener('click', function() { self.generateTTSStreaming(); });
+                document.getElementById('tts-play-sync').addEventListener('click', function() { self.playTTSWithSync(); });
+                document.getElementById('tts-text').addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); self.generateTTS(); }
+                });
+            }
+
+            initBlendshapeGrid(version) {
+                var grid = document.getElementById('blendshape-grid-' + version);
+                while (grid.firstChild) grid.removeChild(grid.firstChild);
+                var fillClass = version;
+                for (var i = 0; i < BLENDSHAPE_CHANNELS.length; i++) {
+                    var ch = BLENDSHAPE_CHANNELS[i];
+                    var item = document.createElement('div'); item.className = 'bs-item'; item.setAttribute('data-channel', ch.idx); item.setAttribute('data-version', version);
+                    var nameSpan = document.createElement('span'); nameSpan.className = 'bs-name'; nameSpan.textContent = ch.name;
+                    var barDiv = document.createElement('div'); barDiv.className = 'bs-bar';
+                    var fillDiv = document.createElement('div'); fillDiv.className = 'bs-fill ' + fillClass; fillDiv.style.width = '0%';
+                    barDiv.appendChild(fillDiv);
+                    var valueSpan = document.createElement('span'); valueSpan.className = 'bs-value'; valueSpan.textContent = '0.00';
+                    item.appendChild(nameSpan); item.appendChild(barDiv); item.appendChild(valueSpan);
+                    grid.appendChild(item);
+                }
+            }
+
+            updateBlendshapeUI(version, frame) {
+                var grid = document.getElementById('blendshape-grid-' + version);
+                var items = grid.querySelectorAll('.bs-item');
+                for (var i = 0; i < items.length; i++) {
+                    var item = items[i];
+                    var chIdx = parseInt(item.getAttribute('data-channel'));
+                    if (frame.length > chIdx) {
+                        var value = frame[chIdx];
+                        item.querySelector('.bs-fill').style.width = (value * 100) + '%';
+                        item.querySelector('.bs-value').textContent = value.toFixed(3);
+                    }
+                }
+            }
+
+            // ── File Processing ────────────────────────────────────
+
+            async processFile(file) {
+                if (this.isProcessing) return;
+                if (this.isMicRecording) this.stopMic();
+                this.isProcessing = true;
+                this.updateStatus('처리 중...', 'processing');
+
+                try {
+                    var audioContext = new AudioContext({ sampleRate: 16000 });
+                    var arrayBuffer = await file.arrayBuffer();
+                    var audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                    var audio = audioBuffer.getChannelData(0);
+                    var duration = audioBuffer.duration;
+
+                    document.getElementById('audio-duration').textContent = duration.toFixed(2) + 's';
+                    this.drawWaveform(audio);
+
+                    // V1
+                    var startV1 = performance.now();
+                    var resultV1 = await this.wrapperV1.processAudio(audio);
+                    var wasmTimeV1 = performance.now() - startV1;
+
+                    document.getElementById('wasm-time-v1').textContent = wasmTimeV1.toFixed(0) + 'ms';
+                    document.getElementById('total-frames-v1').textContent = resultV1.frame_count;
+                    document.getElementById('realtime-factor-v1').textContent = (wasmTimeV1 / 1000 / duration).toFixed(2) + 'x';
+                    document.getElementById('latency-v1').textContent = wasmTimeV1.toFixed(0);
+
+                    // V2
+                    var startV2 = performance.now();
+                    var resultV2 = await this.wrapperV2.processAudio(audio);
+                    var wasmTimeV2 = performance.now() - startV2;
+
+                    document.getElementById('wasm-time-v2').textContent = wasmTimeV2.toFixed(0) + 'ms';
+                    document.getElementById('total-frames-v2').textContent = resultV2.frame_count;
+                    document.getElementById('realtime-factor-v2').textContent = (wasmTimeV2 / 1000 / duration).toFixed(2) + 'x';
+                    document.getElementById('latency-v2').textContent = wasmTimeV2.toFixed(0);
+
+                    this.startAnimation(resultV1, resultV2, true);
+                    this.updateStatus(
+                        '완료 (V1:' + resultV1.mode + ', V2:' + resultV2.mode + ')',
+                        'ready'
+                    );
+                } catch (error) {
+                    console.error('처리 오류:', error);
+                    this.updateStatus('오류: ' + error.message, 'error');
+                } finally {
+                    this.isProcessing = false;
+                }
+            }
+
+            // ── Animation ──────────────────────────────────────────
+
+            startAnimation(resultV1, resultV2, loop) {
+                this.stopAnimation();
+                this._animationStopped = false;
+                this.prevFrameV1 = null;
+                this.prevFrameV2 = null;
+                this.resultV1 = resultV1;
+                this.resultV2 = resultV2;
+                this.currentFrameV1 = 0;
+                this.currentFrameV2 = 0;
+
+                // 본 애니메이션: idle → speaking 즉시 전환
+                // startAnimation 시점에는 이미 speaking 자세여야 freeze 없음
+                this.transitionToSpeaking('v1', true);
+                this.transitionToSpeaking('v2', true);
+
+                var fpsV1 = (resultV1 && resultV1.fps) ? resultV1.fps : 30;
+                var fpsV2 = (resultV2 && resultV2.fps) ? resultV2.fps : 30;
+                var frameCountV1 = (resultV1 && resultV1.frame_count) ? resultV1.frame_count : 0;
+                var frameCountV2 = (resultV2 && resultV2.frame_count) ? resultV2.frame_count : 0;
+                var startTime = performance.now();
+                var self = this;
+
+                var animate = function(now) {
+                    if (self._animationStopped) return;
+
+                    var elapsed = (now - startTime) / 1000;
+                    if (elapsed < 0) elapsed = 0; // rAF 타임스탬프 보정
+
+                    // Check if both are done
+                    var v1Done = frameCountV1 === 0 || (!loop && elapsed >= frameCountV1 / fpsV1);
+                    var v2Done = frameCountV2 === 0 || (!loop && elapsed >= frameCountV2 / fpsV2);
+
+                    if (!loop && v1Done && v2Done) {
+                        self.animationId = null;
+                        self.resetAvatar(self.vrmV1);
+                        self.resetAvatar(self.vrmV2);
+                        // 본 애니메이션: speaking → idle 전환
+                        self.transitionToIdle('v1');
+                        self.transitionToIdle('v2');
+                        self.updateStatus('재생 완료', 'ready');
+                        return;
+                    }
+
+                    // V1 frame
+                    if (frameCountV1 > 0) {
+                        var frameIndexV1 = Math.floor(elapsed * fpsV1);
+                        if (loop) frameIndexV1 = frameIndexV1 % frameCountV1;
+                        else frameIndexV1 = Math.min(frameIndexV1, frameCountV1 - 1);
+
+                        var frameV1 = self.wrapperV1.getFrame(resultV1, frameIndexV1);
+                        if (self.smoothingEnabledV1 && self.prevFrameV1) {
+                            frameV1 = self.applySmoothing(frameV1, self.prevFrameV1, self.smoothingAlpha);
+                        }
+                        self.prevFrameV1 = frameV1;
+                        self.updateBlendshapeUI('v1', frameV1);
+                        self.applyBlendshapes(self.vrmV1, frameV1);
+                        self.currentFrameV1 = frameIndexV1;
+                        document.getElementById('frame-count-v1').textContent = (frameIndexV1 + 1) + '/' + frameCountV1;
+                        document.getElementById('fps-v1').textContent = fpsV1;
+                    }
+
+                    // V2 frame
+                    if (frameCountV2 > 0) {
+                        var frameIndexV2 = Math.floor(elapsed * fpsV2);
+                        if (loop) frameIndexV2 = frameIndexV2 % frameCountV2;
+                        else frameIndexV2 = Math.min(frameIndexV2, frameCountV2 - 1);
+
+                        var frameV2 = self.wrapperV2.getFrame(resultV2, frameIndexV2);
+                        if (self.smoothingEnabledV2 && self.prevFrameV2) {
+                            frameV2 = self.applySmoothing(frameV2, self.prevFrameV2, self.smoothingAlpha);
+                        }
+                        self.prevFrameV2 = frameV2;
+                        self.updateBlendshapeUI('v2', frameV2);
+                        self.applyBlendshapes(self.vrmV2, frameV2);
+                        self.currentFrameV2 = frameIndexV2;
+                        document.getElementById('frame-count-v2').textContent = (frameIndexV2 + 1) + '/' + frameCountV2;
+                        document.getElementById('fps-v2').textContent = fpsV2;
+                    }
+
+                    self.animationId = requestAnimationFrame(animate);
+                };
+                this.animationId = requestAnimationFrame(animate);
+            }
+
+            stopAnimation() {
+                this._animationStopped = true;
+                if (this.animationId) { cancelAnimationFrame(this.animationId); this.animationId = null; }
+                if (this.ttsAudioElement && !this.ttsAudioElement.paused) { this.ttsAudioElement.pause(); }
+            }
+
+            reset() {
+                this.stopAnimation();
+                if (this.isMicRecording) this.stopMic();
+                // 본 애니메이션: speaking → idle 전환
+                this.transitionToIdle('v1');
+                this.transitionToIdle('v2');
+                this.resultV1 = null;
+                this.resultV2 = null;
+                this.ttsBlendshapesV1 = null;
+                this.ttsBlendshapesV2 = null;
+                this.currentFrameV1 = 0;
+                this.currentFrameV2 = 0;
+                this.wrapperV1.reset();
+                this.wrapperV2.reset();
+                this.prevFrameV1 = null;
+                this.prevFrameV2 = null;
+                this.resetAvatar(this.vrmV1);
+                this.resetAvatar(this.vrmV2);
+
+                document.getElementById('wasm-time-v1').textContent = '-';
+                document.getElementById('wasm-time-v2').textContent = '-';
+                document.getElementById('audio-duration').textContent = '-';
+                document.getElementById('total-frames-v1').textContent = '-';
+                document.getElementById('total-frames-v2').textContent = '-';
+                document.getElementById('realtime-factor-v1').textContent = '-';
+                document.getElementById('realtime-factor-v2').textContent = '-';
+                document.getElementById('frame-count-v1').textContent = '0';
+                document.getElementById('frame-count-v2').textContent = '0';
+                document.getElementById('fps-v1').textContent = '0';
+                document.getElementById('fps-v2').textContent = '0';
+                document.getElementById('latency-v1').textContent = '0';
+                document.getElementById('latency-v2').textContent = '0';
+                this.initBlendshapeGrid('v1');
+                this.initBlendshapeGrid('v2');
+                this.clearWaveform();
+            }
+
+            // ── Waveform ───────────────────────────────────────────
+
+            drawWaveform(audio) {
+                var canvas = document.getElementById('waveform-canvas');
+                var ctx = canvas.getContext('2d');
+                var width = canvas.offsetWidth; var height = canvas.offsetHeight;
+                canvas.width = width; canvas.height = height;
+                ctx.fillStyle = '#0f0f1a'; ctx.fillRect(0, 0, width, height);
+                ctx.strokeStyle = '#4cc9f0'; ctx.lineWidth = 1; ctx.beginPath();
+                var step = Math.ceil(audio.length / width); var mid = height / 2;
+                for (var i = 0; i < width; i++) {
+                    var y = mid + (audio[i * step] || 0) * mid * 0.8;
+                    i === 0 ? ctx.moveTo(i, y) : ctx.lineTo(i, y);
+                }
+                ctx.stroke();
+            }
+
+            clearWaveform() {
+                var canvas = document.getElementById('waveform-canvas');
+                var ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#0f0f1a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            applySmoothing(currentFrame, prevFrame, alpha) {
+                if (!prevFrame || prevFrame.length !== currentFrame.length) return currentFrame;
+                var result = new Array(currentFrame.length);
+                for (var i = 0; i < currentFrame.length; i++) {
+                    result[i] = prevFrame[i] + alpha * (currentFrame[i] - prevFrame[i]);
+                }
+                return result;
+            }
+
+            // ── VAD Calibration ─────────────────────────────────
+
+            _calculateRMS(samples) {
+                var sumSq = 0;
+                for (var i = 0; i < samples.length; i++) {
+                    sumSq += samples[i] * samples[i];
+                }
+                return Math.sqrt(sumSq / samples.length);
+            }
+
+            _finalizeVADCalibration() {
+                var samples = this.vadCalibrationSamples;
+                var mean = samples.reduce(function(a, b) { return a + b; }, 0) / samples.length;
+                var variance = samples.reduce(function(a, b) { return a + (b - mean) * (b - mean); }, 0) / samples.length;
+                var stdDev = Math.sqrt(variance);
+
+                var autoThreshold = mean + 2 * stdDev;
+                autoThreshold = Math.max(autoThreshold, 0.005);
+
+                console.log('[VAD] Calibration:', {
+                    samples: samples.length,
+                    mean: mean.toFixed(5),
+                    stdDev: stdDev.toFixed(5),
+                    threshold: autoThreshold.toFixed(5)
+                });
+
+                this.vad = new this.wrapperV1.wasmModule.VoiceActivityDetector(
+                    autoThreshold, 0.5
+                );
+
+                this.vadCalibrating = false;
+                this.vadCalibrationSamples = null;
+
+                this.updateStatus(
+                    '마이크 스트리밍 중... (VAD: ' + autoThreshold.toFixed(4) + ')',
+                    'processing'
+                );
+            }
+
+            // ── TTS Streaming ─────────────────────────────────────
+
+            async generateTTSStreaming() {
+                var text = document.getElementById('tts-text').value.trim();
+                var lang = document.getElementById('tts-lang').value;
+                if (!text) { this.updateStatus('텍스트를 입력하세요.', 'error'); return; }
+                if (this.isProcessing) return;
+                if (this.isMicRecording) this.stopMic();
+
+                this.isProcessing = true;
+                var streamBtn = document.getElementById('tts-stream-btn');
+                streamBtn.disabled = true;
+                streamBtn.textContent = '스트리밍 중...';
+                this.updateStatus('TTS 음성 생성 중...', 'processing');
+
+                try {
+                    // 1. TTS API 호출
+                    var ttsRes = await fetch(TTS_API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: text, language: lang })
+                    });
+                    if (!ttsRes.ok) throw new Error('TTS API 오류: ' + ttsRes.status);
+                    var ttsData = await ttsRes.json();
+                    if (!ttsData.success) throw new Error(ttsData.message || 'TTS 생성 실패');
+
+                    // 2. Base64 WAV -> Float32Array (16kHz)
+                    var audioBytes = Uint8Array.from(atob(ttsData.audio), function(c) { return c.charCodeAt(0); });
+                    var audioContext = new AudioContext({ sampleRate: 16000 });
+                    var audioBuffer = await audioContext.decodeAudioData(audioBytes.buffer);
+                    var audio = audioBuffer.getChannelData(0);
+                    var duration = audioBuffer.duration;
+                    audioContext.close();
+
+                    document.getElementById('audio-duration').textContent = duration.toFixed(2) + 's';
+                    this.drawWaveform(audio);
+
+                    // 3. 스트리밍 파이프라인으로 전체 오디오를 청크 단위 처리
+                    //    배치 API(processAudio) 대신 스트리밍 API(processAudioChunk)를 사용하여
+                    //    마이크 스트리밍 파이프라인의 정확성을 검증
+                    this.updateStatus('스트리밍 파이프라인 처리 중...', 'processing');
+
+                    // 본 애니메이션 전환은 startAnimation()에서 instant=true로 처리
+                    // 청크 처리 중에 gradual 전환하면 speaking 자세만 보이고 입이 안 움직이는 문제 발생
+
+                    var chunkSize = 1600; // 100ms @ 16kHz
+                    var totalChunks = Math.ceil(audio.length / chunkSize);
+                    // flatten blendshape 배열 (startAnimation의 getFrame 호환)
+                    var flatBsV1 = [];
+                    var flatBsV2 = [];
+                    var frameCountV1 = 0;
+                    var frameCountV2 = 0;
+
+                    for (var i = 0; i < totalChunks; i++) {
+                        var start = i * chunkSize;
+                        var end = Math.min(start + chunkSize, audio.length);
+                        var chunk = audio.slice(start, end);
+                        var isLast = (i === totalChunks - 1);
+
+                        // V1/V2 병렬 처리
+                        var results = await Promise.all([
+                            this.wrapperV1.processAudioChunk(chunk, isLast),
+                            this.wrapperV2.processAudioChunk(chunk, isLast)
+                        ]);
+
+                        var r1 = results[0];
+                        var r2 = results[1];
+
+                        if (r1 && r1.frame_count > 0) {
+                            for (var f = 0; f < r1.frame_count; f++) {
+                                var frame1 = this.wrapperV1.getFrame(r1, f);
+                                for (var d = 0; d < frame1.length; d++) flatBsV1.push(frame1[d]);
+                                frameCountV1++;
+                            }
+                        }
+                        if (r2 && r2.frame_count > 0) {
+                            for (var f = 0; f < r2.frame_count; f++) {
+                                var frame2 = this.wrapperV2.getFrame(r2, f);
+                                for (var d = 0; d < frame2.length; d++) flatBsV2.push(frame2[d]);
+                                frameCountV2++;
+                            }
+                        }
+
+                        // 3청크(300ms 분량)마다 메인 스레드 양보 → rAF 렌더 루프 실행 허용
+                        // await Promise.all은 microtask만 양보하므로 rAF가 실행되지 않음
+                        // setTimeout(0)으로 macrotask 큐에 양보해야 렌더링 프레임 확보
+                        if (i % 3 === 2 || isLast) {
+                            await new Promise(function(r) { setTimeout(r, 0); });
+                        }
+                    }
+
+                    console.log('[TTS Streaming] V1:', frameCountV1, 'frames, V2:', frameCountV2, 'frames');
+
+                    // 4. startAnimation 호환 결과 객체 생성
+                    var streamResultV1 = {
+                        blendshapes: flatBsV1,
+                        frame_count: frameCountV1,
+                        fps: 30,
+                        mode: 'streaming-v1'
+                    };
+                    var streamResultV2 = {
+                        blendshapes: flatBsV2,
+                        frame_count: frameCountV2,
+                        fps: 30,
+                        mode: 'streaming-v2'
+                    };
+
+                    // TTS 블렌드쉐입 저장 (재생 버튼용)
+                    this.ttsBlendshapesV1 = streamResultV1;
+                    this.ttsBlendshapesV2 = streamResultV2;
+
+                    // 6. 오디오 플레이어 설정
+                    var audioEl = document.getElementById('tts-audio');
+                    audioEl.src = 'data:audio/wav;base64,' + ttsData.audio;
+                    this.ttsAudioElement = audioEl;
+                    document.getElementById('tts-audio-container').style.display = 'block';
+
+                    // 7. 오디오 재생 준비 완료 후 애니메이션 + 재생 동시 시작
+                    //    data URI 파싱/디코딩이 완료될 때까지 대기하여 싱크 보장
+                    this.updateStatus(
+                        'TTS 스트리밍 완료 (V1:' + frameCountV1 + 'f, V2:' + frameCountV2 + 'f)',
+                        'ready'
+                    );
+                    var self = this;
+                    await new Promise(function(resolve) {
+                        audioEl.currentTime = 0;
+                        // canplaythrough: 충분히 버퍼링되어 끊김 없이 재생 가능
+                        if (audioEl.readyState >= 4) {
+                            resolve();
+                        } else {
+                            audioEl.addEventListener('canplaythrough', resolve, { once: true });
+                        }
+                    });
+                    self.startAnimation(streamResultV1, streamResultV2, false);
+                    audioEl.play().catch(function(e) { console.warn('오디오 재생 실패:', e.message); });
+
+                } catch (err) {
+                    console.error('TTS 스트리밍 오류:', err);
+                    this.updateStatus('TTS 스트리밍 오류: ' + err.message, 'error');
+                } finally {
+                    this.isProcessing = false;
+                    streamBtn.disabled = false;
+                    streamBtn.textContent = '스트리밍 테스트';
+                }
+            }
+
+            updateStatus(message, type) {
+                var el = document.getElementById('status');
+                el.textContent = message;
+                el.className = 'status status-' + type;
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', function() { window.__app = new DualLipSyncApp(); });
+    </script>
 </body>
 </html>
