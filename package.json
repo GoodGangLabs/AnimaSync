@@ -1,18 +1,19 @@
 {
   "name": "animasync",
   "version": "1.0.0",
-  "description": "<div align=\"center\">",
-  "main": "playwright.config.js",
+  "description": "Voice-driven 3D avatar animation engine for the browser",
+  "private": true,
   "directories": {
     "example": "examples",
     "test": "tests"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npx playwright test",
+    "serve": "docker compose up -d --build"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": ["lip-sync", "wasm", "vrm", "avatar", "arkit", "blendshape", "animation", "three.js"],
+  "author": "GoodGang Labs <https://goodganglabs.com>",
+  "license": "MIT",
   "devDependencies": {
     "@playwright/test": "^1.58.2"
   }

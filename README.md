@@ -13,12 +13,18 @@ Extracts emotion from speech and generates lip sync, facial expressions, and bod
 [![npm V1](https://img.shields.io/npm/v/@goodganglabs/lipsync-wasm-v1?label=V1%20%E2%80%A2%20Phoneme&color=f59e0b&style=for-the-badge)](https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v1)
 &nbsp;
 [![npm V2](https://img.shields.io/npm/v/@goodganglabs/lipsync-wasm-v2?label=V2%20%E2%80%A2%20Student&color=10b981&style=for-the-badge)](https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v2)
+&nbsp;
+[![Deploy](https://github.com/GoodGangLabs/AnimaSync/actions/workflows/pages.yml/badge.svg)](https://github.com/GoodGangLabs/AnimaSync/actions/workflows/pages.yml)
+&nbsp;
+[![MIT License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
 
-[V1 Demo](https://goodganglabs.github.io/AnimaSync/examples/vanilla-basic/)
+[Homepage](https://animasync.quasar.ggls.dev/)
 &ensp;·&ensp;
-[V2 Demo](https://goodganglabs.github.io/AnimaSync/examples/vanilla-avatar/)
+[V1 Demo](https://animasync.quasar.ggls.dev/examples/vanilla-basic/)
 &ensp;·&ensp;
-[V1 vs V2](https://goodganglabs.github.io/AnimaSync/examples/vanilla-comparison/)
+[V2 Demo](https://animasync.quasar.ggls.dev/examples/vanilla-avatar/)
+&ensp;·&ensp;
+[V1 vs V2](https://animasync.quasar.ggls.dev/examples/vanilla-comparison/)
 &ensp;·&ensp;
 [npm V1](https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v1)
 &ensp;·&ensp;
@@ -128,11 +134,11 @@ for (let i = 0; i < result.frame_count; i++) {
 
 Working examples you can run locally — zero npm install, all loaded from CDN.
 
-| Example | Description | Source |
-|---------|-------------|--------|
-| **[V1 Data](examples/vanilla-basic/)** | V1 phoneme engine — 52 ARKit blendshapes visualization, ONNX inference, playback. | [index.html](examples/vanilla-basic/index.html) |
-| **[V2 Data](examples/vanilla-avatar/)** | V2 student model — 52 ARKit blendshapes direct prediction, crisp mouth. | [index.html](examples/vanilla-avatar/index.html) |
-| **[V1 vs V2](examples/vanilla-comparison/)** | Side-by-side dual avatar comparison. Same voice, two animation engines. | [index.html](examples/vanilla-comparison/index.html) |
+| Example | Description | Live Demo | Source |
+|---------|-------------|-----------|--------|
+| **V1 Data** | V1 phoneme engine — 52 ARKit blendshapes visualization, ONNX inference, playback. | [Try it](https://animasync.quasar.ggls.dev/examples/vanilla-basic/) | [index.html](examples/vanilla-basic/index.html) |
+| **V2 Data** | V2 student model — 52 ARKit blendshapes direct prediction, crisp mouth. | [Try it](https://animasync.quasar.ggls.dev/examples/vanilla-avatar/) | [index.html](examples/vanilla-avatar/index.html) |
+| **V1 vs V2** | Side-by-side dual avatar comparison. Same voice, two animation engines. | [Try it](https://animasync.quasar.ggls.dev/examples/vanilla-comparison/) | [index.html](examples/vanilla-comparison/index.html) |
 
 **Run any example:**
 
@@ -141,13 +147,15 @@ cd examples/vanilla-basic   # or vanilla-avatar, vanilla-comparison
 npx serve .                  # or: python3 -m http.server 8080
 ```
 
-### Docker
+### Self-hosting with Docker
 
 Serve the full demo site locally via Docker:
 
 ```bash
 docker compose up -d --build   # http://localhost:9090
 ```
+
+The production site is available at **[animasync.quasar.ggls.dev](https://animasync.quasar.ggls.dev/)**.
 
 ---
 

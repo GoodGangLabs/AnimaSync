@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://goodganglabs.github.io/AnimaSync/</loc><lastmod>2026-02-26</lastmod></url>
-  <url><loc>https://goodganglabs.github.io/AnimaSync/examples/vanilla-basic/</loc><lastmod>2026-02-26</lastmod></url>
-  <url><loc>https://goodganglabs.github.io/AnimaSync/examples/vanilla-avatar/</loc><lastmod>2026-02-26</lastmod></url>
-  <url><loc>https://goodganglabs.github.io/AnimaSync/examples/vanilla-comparison/</loc><lastmod>2026-02-26</lastmod></url>
+  <url><loc>https://animasync.quasar.ggls.dev/</loc><lastmod>2026-02-28</lastmod></url>
+  <url><loc>https://animasync.quasar.ggls.dev/examples/vanilla-basic/</loc><lastmod>2026-02-28</lastmod></url>
+  <url><loc>https://animasync.quasar.ggls.dev/examples/vanilla-avatar/</loc><lastmod>2026-02-28</lastmod></url>
+  <url><loc>https://animasync.quasar.ggls.dev/examples/vanilla-comparison/</loc><lastmod>2026-02-28</lastmod></url>
 </urlset>
