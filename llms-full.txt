@@ -1,0 +1,303 @@
+# AnimaSync — Full Documentation
+
+> Voice-driven 3D avatar animation engine for the browser.
+
+AnimaSync extracts emotion from speech and generates lip sync, facial expressions, and body motion in real time — entirely client-side via Rust/WASM.
+
+## Table of Contents
+
+1. Overview
+2. Installation
+3. API Reference
+4. V1 vs V2 Comparison
+5. Architecture
+6. Examples
+7. Real-time Streaming
+8. Licensing
+9. Security
+
+---
+
+## 1. Overview
+
+AnimaSync is a browser-native voice-to-animation engine. It takes audio input (file, microphone, or TTS) and produces per-frame ARKit blendshape values at 30fps. These values drive lip sync, facial expressions, eye blinks, and body motion on 3D avatars.
+
+### Core Capabilities
+
+- **Lip Sync**: ONNX inference maps phonemes to ARKit blendshapes (jaw, mouth, tongue)
+- **Facial Expression**: Voice energy and pitch drive brows, cheeks, eyes, and smile
+- **Eye Animation**: Stochastic blink injection (2.5-4.5s intervals, 15% double-blink)
+- **Body Motion**: Embedded VRMA bone animation clips with idle/speaking crossfade
+
+### Technology Stack
+
+- Rust compiled to WebAssembly for feature extraction and post-processing
+- ONNX Runtime Web for neural network inference in the browser
+- Three.js + @pixiv/three-vrm for 3D avatar rendering
+- AudioWorklet for real-time microphone capture at 16kHz
+
+---
+
+## 2. Installation
+
+### npm
+
+```bash
+# V2 recommended for most use cases
+npm install @goodganglabs/lipsync-wasm-v2
+
+# V1 for full 111-dim expression control
+npm install @goodganglabs/lipsync-wasm-v1
+```
+
+Peer dependency: onnxruntime-web >= 1.17.0
+
+### CDN (No Bundler)
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/ort.min.js"></script>
+<script type="module">
+  const CDN = 'https://cdn.jsdelivr.net/npm/@goodganglabs/lipsync-wasm-v2@latest';
+  const { LipSyncWasmWrapper } = await import(`${CDN}/lipsync-wasm-wrapper.js`);
+  const lipsync = new LipSyncWasmWrapper({ wasmPath: `${CDN}/lipsync_wasm_v2.js` });
+  await lipsync.init();
+</script>
+```
+
+---
+
+## 3. API Reference
+
+Both V1 and V2 expose the same `LipSyncWasmWrapper` class:
+
+### Constructor
+
+```typescript
+new LipSyncWasmWrapper(options?: { wasmPath?: string })
+```
+
+- `wasmPath`: Path to the WASM JS loader file. Required when using CDN.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `ready` | `boolean` | `true` after `init()` completes successfully |
+| `modelVersion` | `'v1' \| 'v2'` | Which engine version is loaded |
+| `blendshapeDim` | `111 \| 52` | Output dimension per frame |
+
+### Methods
+
+#### `init(options?): Promise<{ mode: string }>`
+
+Initialize the engine. Validates license, loads WASM, decrypts and loads ONNX model.
+
+Parameters:
+- `licenseKey?: string` — Paid license key. Omit for 30-day free trial.
+- `onProgress?: (stage: string, percent: number) => void` — Progress callback. Stages: 'wasm' -> 'license' -> 'decrypt' -> 'onnx'.
+- `preset?: boolean | string` — Enable/disable expression presets.
+
+#### `processFile(file: File): Promise<ProcessResult>`
+
+Process an audio file (mp3, wav, ogg, m4a). Returns all frames at once.
+
+#### `processAudio(pcm16k: Float32Array): Promise<ProcessResult>`
+
+Process raw 16kHz PCM audio. Use for pre-loaded audio or TTS output.
+
+#### `processAudioBuffer(buf: AudioBuffer): Promise<ProcessResult>`
+
+Process a Web Audio API AudioBuffer.
+
+#### `processAudioChunk(chunk: Float32Array, isLast?: boolean): Promise<ProcessResult | null>`
+
+Process a chunk of streaming audio. Returns `null` if not enough data accumulated yet. Use for real-time microphone input.
+
+#### `getFrame(result: ProcessResult, index: number): number[]`
+
+Extract a single frame from a ProcessResult. Returns an array of blendshape values (length 52 for V2, 111 for V1).
+
+#### `getVrmaBytes(): { idle: Uint8Array; speaking: Uint8Array }`
+
+Get embedded VRMA bone animation clips for idle breathing and speaking gestures.
+
+#### `reset(): void`
+
+Clear streaming state. Call between utterances when using `processAudioChunk`.
+
+#### `dispose(): void`
+
+Release all resources (WASM memory, ONNX session).
+
+### ProcessResult Interface
+
+```typescript
+interface ProcessResult {
+  blendshapes: number[];  // flat array: frame_count * dim
+  frame_count: number;
+  fps: number;            // always 30
+  mode: string;
+}
+```
+
+---
+
+## 4. V1 vs V2 Comparison
+
+| Feature | V2 (Recommended) | V1 (Full Control) |
+|---------|-------------------|-------------------|
+| npm package | @goodganglabs/lipsync-wasm-v2 | @goodganglabs/lipsync-wasm-v1 |
+| Output dimension | 52-dim ARKit blendshapes | 111-dim ARKit blendshapes |
+| Model architecture | Student distillation (direct prediction) | Phoneme classification -> viseme mapping |
+| Post-processing | crisp_mouth + fade + auto-blink | OneEuroFilter + anatomical constraints |
+| Expression generation | Blink injection in post-process | Built-in IdleExpressionGenerator |
+| Voice activity | Not included | Built-in VoiceActivityDetector |
+| ONNX fallback | None (ONNX required) | Heuristic mode (energy-based) |
+| Body motion | VRMA idle/speaking | VRMA idle/speaking + VAD auto-switch |
+| Best for | Most projects, quick integration | Full expression control, custom avatars |
+
+---
+
+## 5. Architecture
+
+### V2 Pipeline
+
+```
+Audio 16kHz PCM
+  -> [WASM] librosa-compatible features: 141-dim @30fps
+  -> [JS]   ONNX student model -> 52-dim (lip sync + expressions)
+  -> [WASM] crisp_mouth (mouth sharpening) -> fade_in_out (natural onset/offset)
+  -> [WASM] add_blinks (stochastic eye animation)
+  -> [WASM] Preset blending: expression channels blended with lip sync
+  -> [VRMA] Bone animation: idle <-> speaking pose auto-crossfade
+```
+
+### V1 Pipeline
+
+```
+Audio 16kHz PCM
+  -> [WASM] MFCC extraction: 13-dim @100fps
+  -> [JS]   ONNX inference: 61 phoneme -> 22 visemes
+  -> [WASM] Viseme -> 111-dim ARKit blendshapes
+  -> [WASM] FPS conversion: 100fps -> 30fps
+  -> [WASM] Anatomical constraints (bilateral symmetry + jaw correction)
+  -> [WASM] OneEuroFilter (temporal smoothing)
+  -> [WASM] Preset blending: face 40% + mouth 60%
+  -> [WASM] IdleExpressionGenerator: blinks + micro-expressions
+  -> [VRMA] Bone animation: idle <-> speaking crossfade (VAD-triggered)
+```
+
+### 52 ARKit Blendshape Channels
+
+The output maps to Apple ARKit face tracking blendshapes:
+
+Brow: browDownLeft, browDownRight, browInnerUp, browOuterUpLeft, browOuterUpRight
+Cheek: cheekPuff, cheekSquintLeft, cheekSquintRight
+Eye: eyeBlinkLeft, eyeBlinkRight, eyeLookDownLeft, eyeLookDownRight, eyeLookInLeft, eyeLookInRight, eyeLookOutLeft, eyeLookOutRight, eyeLookUpLeft, eyeLookUpRight, eyeSquintLeft, eyeSquintRight, eyeWideLeft, eyeWideRight
+Jaw: jawForward, jawLeft, jawOpen, jawRight
+Mouth: mouthClose, mouthDimpleLeft, mouthDimpleRight, mouthFrownLeft, mouthFrownRight, mouthFunnel, mouthLeft, mouthLowerDownLeft, mouthLowerDownRight, mouthPressLeft, mouthPressRight, mouthPucker, mouthRight, mouthRollLower, mouthRollUpper, mouthShrugLower, mouthShrugUpper, mouthSmileLeft, mouthSmileRight, mouthStretchLeft, mouthStretchRight, mouthUpperUpLeft, mouthUpperUpRight
+Nose: noseSneerLeft, noseSneerRight
+Tongue: tongueOut
+
+---
+
+## 6. Examples
+
+| Example | Description | URL |
+|---------|-------------|-----|
+| V1 Data | V1 phoneme engine — 52 ARKit blendshapes visualization | https://animasync.quasar.ggls.dev/examples/vanilla-basic/ |
+| V2 Data | V2 student model — 52 ARKit direct prediction | https://animasync.quasar.ggls.dev/examples/vanilla-avatar/ |
+| V1 vs V2 | Side-by-side dual avatar comparison | https://animasync.quasar.ggls.dev/examples/vanilla-comparison/ |
+
+Run locally:
+
+```bash
+cd examples/vanilla-basic
+npx serve .
+```
+
+Or with Docker:
+
+```bash
+docker compose up -d --build   # http://localhost:9090
+```
+
+---
+
+## 7. Real-time Streaming
+
+### Pattern
+
+```javascript
+// 1. Create AudioContext at 16kHz
+const ctx = new AudioContext({ sampleRate: 16000 });
+const source = ctx.createMediaStreamSource(micStream);
+
+// 2. Setup AudioWorklet to capture 1600-sample chunks (100ms)
+// (see examples for full AudioWorklet code)
+
+// 3. Feed chunks to AnimaSync
+worklet.port.onmessage = async (e) => {
+  const result = await lipsync.processAudioChunk(e.data);
+  if (result) {
+    for (let i = 0; i < result.frame_count; i++) {
+      frameQueue.push(lipsync.getFrame(result, i));
+    }
+  }
+};
+
+// 4. Consume frames at 30fps in render loop
+function render() {
+  requestAnimationFrame(render);
+  if (frameQueue.length > 0) {
+    applyToAvatar(frameQueue.shift());
+  }
+}
+```
+
+### Latency
+
+- AudioWorklet chunk size: 1600 samples at 16kHz = 100ms
+- WASM + ONNX processing: ~10-30ms per chunk
+- Total pipeline latency: ~130-300ms
+
+---
+
+## 8. Licensing
+
+| | Free Trial | Paid License |
+|---|---|---|
+| Duration | 30 days from first use | Unlimited |
+| Setup | None (automatic) | Pass licenseKey to init() |
+| Domain | Any | Configurable per key |
+| Features | Full access | Full access |
+
+```javascript
+await lipsync.init();                                // free trial
+await lipsync.init({ licenseKey: 'ggl_your_key' }); // paid license
+```
+
+Contact GoodGang Labs (https://goodganglabs.com) for license inquiries.
+
+---
+
+## 9. Security
+
+- ONNX models are AES-256-GCM encrypted and compiled into the WASM binary
+- No separate model files are served — decryption happens at runtime
+- License tokens are Ed25519 signed with 24-hour TTL
+- Tokens cached in sessionStorage to minimize server requests
+- External scripts use Subresource Integrity (SRI) hashes
+- All demo pages are static HTML running entirely client-side
+
+---
+
+## Links
+
+- Homepage: https://animasync.quasar.ggls.dev/
+- GitHub: https://github.com/goodganglabs/AnimaSync
+- npm V1: https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v1
+- npm V2: https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v2
+- Security Policy: https://github.com/goodganglabs/AnimaSync/blob/main/SECURITY.md
+
+Built by GoodGang Labs (https://goodganglabs.com)

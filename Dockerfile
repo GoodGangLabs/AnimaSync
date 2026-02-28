@@ -12,6 +12,10 @@ COPY examples/ /usr/share/nginx/html/examples/
 COPY assets/ /usr/share/nginx/html/assets/
 COPY robots.txt /usr/share/nginx/html/
 COPY sitemap.xml /usr/share/nginx/html/
+COPY llms.txt /usr/share/nginx/html/
+COPY llms-full.txt /usr/share/nginx/html/
+COPY humans.txt /usr/share/nginx/html/
+COPY .well-known/ /usr/share/nginx/html/.well-known/
 
 # Prepare cache dirs for non-root and switch user
 RUN chown -R nginx:nginx /var/cache/nginx /var/log/nginx && \

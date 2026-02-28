@@ -1,0 +1,47 @@
+# AnimaSync
+
+> Voice-driven 3D avatar animation engine for the browser.
+
+AnimaSync extracts emotion from speech and generates lip sync, facial expressions, and body motion in real time — entirely client-side via Rust/WASM.
+
+## Core Capabilities
+
+- **Lip Sync**: ONNX inference maps phonemes to ARKit blendshapes (jaw, mouth, tongue)
+- **Facial Expression**: Voice energy and pitch drive brows, cheeks, eyes, and smile
+- **Eye Animation**: Stochastic blink injection (2.5-4.5s intervals, 15% double-blink)
+- **Body Motion**: Embedded VRMA bone animation with idle/speaking crossfade
+
+## Two Engine Versions
+
+- **V2 (Recommended)**: Student distillation model, 52-dim ARKit output, direct prediction
+- **V1 (Full Control)**: Phoneme classification, 111-dim ARKit output, built-in VAD
+
+## Quick Start
+
+```bash
+npm install @goodganglabs/lipsync-wasm-v2
+```
+
+```javascript
+import { LipSyncWasmWrapper } from '@goodganglabs/lipsync-wasm-v2';
+const lipsync = new LipSyncWasmWrapper();
+await lipsync.init();
+const result = await lipsync.processFile(audioFile);
+const frame = lipsync.getFrame(result, 0); // number[52]
+```
+
+## Links
+
+- Homepage: https://animasync.quasar.ggls.dev/
+- GitHub: https://github.com/goodganglabs/AnimaSync
+- npm V1: https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v1
+- npm V2: https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v2
+- V1 Demo: https://animasync.quasar.ggls.dev/examples/vanilla-basic/
+- V2 Demo: https://animasync.quasar.ggls.dev/examples/vanilla-avatar/
+- V1 vs V2 Comparison: https://animasync.quasar.ggls.dev/examples/vanilla-comparison/
+- Full Documentation: https://animasync.quasar.ggls.dev/llms-full.txt
+
+## Licensing
+
+30-day free trial with no signup. Call `init()` without a license key.
+Contact GoodGang Labs (https://goodganglabs.com) for paid licenses.

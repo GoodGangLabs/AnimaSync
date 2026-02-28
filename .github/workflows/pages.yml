@@ -24,3 +24,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: .
           exclude_assets: '.github,node_modules,test-results,tests,package.json,package-lock.json,playwright.config.js,Dockerfile,docker-compose.yml,nginx.conf,.dockerignore'
+          keep_files: true
