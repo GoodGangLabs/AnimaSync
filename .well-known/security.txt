@@ -1,0 +1,5 @@
+Contact: mailto:security@goodganglabs.com
+Expires: 2027-02-28T00:00:00.000Z
+Preferred-Languages: en, ko
+Canonical: https://animasync.quasar.ggls.dev/.well-known/security.txt
+Policy: https://github.com/goodganglabs/AnimaSync/blob/main/SECURITY.md

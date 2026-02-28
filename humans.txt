@@ -1,0 +1,15 @@
+/* TEAM */
+Name: GoodGang Labs
+Site: https://goodganglabs.com
+Location: Seoul, South Korea
+
+/* SITE */
+Software: Nginx, Rust/WASM, ONNX Runtime Web
+Standards: HTML5, CSS3, ES Modules, WebAssembly
+Components: Three.js, @pixiv/three-vrm, onnxruntime-web
+Frameworks: Vanilla JavaScript (no framework)
+
+/* THANKS */
+Three.js — https://threejs.org
+@pixiv/three-vrm — https://github.com/pixiv/three-vrm
+ONNX Runtime — https://onnxruntime.ai

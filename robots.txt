@@ -1,3 +1,44 @@
+# AnimaSync — robots.txt
+# https://animasync.quasar.ggls.dev/
+
+# All crawlers
 User-agent: *
 Allow: /
+Disallow: /assets/models/
+
+# Google
+User-agent: Googlebot
+Allow: /
+
+# Bing
+User-agent: Bingbot
+Allow: /
+
+# AI Crawlers
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: Anthropic-AI
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Cohere-AI
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+# Sitemap & AI discovery
 Sitemap: https://animasync.quasar.ggls.dev/sitemap.xml
+LLMs-Txt: https://animasync.quasar.ggls.dev/llms.txt
