@@ -1,0 +1,7 @@
+services:
+  animasync:
+    build: .
+    container_name: animasync
+    ports:
+      - "9090:80"
+    restart: unless-stopped
