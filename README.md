@@ -141,6 +141,14 @@ cd examples/vanilla-basic   # or vanilla-avatar, vanilla-comparison
 npx serve .                  # or: python3 -m http.server 8080
 ```
 
+### Docker
+
+Serve the full demo site locally via Docker:
+
+```bash
+docker compose up -d --build   # http://localhost:9090
+```
+
 ---
 
 ## V1 vs V2
