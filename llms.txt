@@ -36,6 +36,7 @@ const frame = lipsync.getFrame(result, 0); // number[52]
 - GitHub: https://github.com/goodganglabs/AnimaSync
 - npm V1: https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v1
 - npm V2: https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v2
+- Step-by-Step Guide: https://animasync.quasar.ggls.dev/examples/guide/
 - V1 Demo: https://animasync.quasar.ggls.dev/examples/vanilla-basic/
 - V2 Demo: https://animasync.quasar.ggls.dev/examples/vanilla-avatar/
 - V1 vs V2 Comparison: https://animasync.quasar.ggls.dev/examples/vanilla-comparison/
