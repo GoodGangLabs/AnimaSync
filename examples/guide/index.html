@@ -422,6 +422,55 @@
     .status-badge.ready { background: rgba(16,185,129,0.12); color: #10b981; }
     .status-badge.error { background: rgba(239,68,68,0.12); color: #ef4444; }
 
+    /* ── Source modal ── */
+    .source-modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+      z-index: 1000; display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity 0.2s; pointer-events: none;
+    }
+    .source-modal-overlay.open { opacity: 1; pointer-events: auto; }
+    .source-modal {
+      background: #16213e; border-radius: 12px;
+      width: 92vw; max-width: 900px; max-height: 85vh;
+      display: flex; flex-direction: column;
+      border: 1px solid rgba(76,201,240,0.15);
+      box-shadow: 0 24px 48px rgba(0,0,0,0.5);
+    }
+    .source-modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06);
+      flex-shrink: 0;
+    }
+    .source-modal-header .source-title {
+      font-size: 0.8rem; font-weight: 700; color: #e2e8f0;
+      text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .source-modal-actions { display: flex; gap: 4px; }
+    .source-modal-actions button {
+      background: none; border: 1px solid rgba(255,255,255,0.08);
+      cursor: pointer; color: #94a3b8; font-size: 0.72rem;
+      padding: 5px 12px; border-radius: 6px; transition: all 0.15s;
+      font-family: inherit; font-weight: 600;
+    }
+    .source-modal-actions button:hover { color: #e2e8f0; background: rgba(255,255,255,0.06); }
+    .source-modal-actions button.copied { color: #10b981; border-color: rgba(16,185,129,0.3); }
+    .source-modal-body {
+      overflow: auto; padding: 16px; flex: 1; min-height: 0;
+    }
+    .source-modal-body pre {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 0.72rem; line-height: 1.7; color: #94a3b8;
+      white-space: pre; margin: 0;
+    }
+    .btn-source {
+      background: rgba(76,201,240,0.08); color: #4cc9f0;
+      border: 1px solid rgba(76,201,240,0.15); cursor: pointer;
+      font-size: 0.68rem; font-weight: 700; padding: 4px 10px;
+      border-radius: 6px; font-family: inherit; transition: all 0.15s;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .btn-source:hover { background: rgba(76,201,240,0.18); }
+
     /* ── Footer ── */
     footer {
       border-top: 1px solid rgba(255,255,255,0.04);
@@ -700,6 +749,7 @@ worklet.port.onmessage = <span class="kw">async</span> (e) =&gt; {
     <div style="display:flex;align-items:center;gap:8px">
       <span class="status-badge waiting" id="init-badge">Not initialized</span>
       <span class="status-badge waiting" id="vrm-badge" style="display:none"></span>
+      <button class="btn-source" id="btn-source" title="View standalone HTML source">&lt;/&gt; Source</button>
     </div>
   </div>
 
@@ -780,6 +830,23 @@ worklet.port.onmessage = <span class="kw">async</span> (e) =&gt; {
 <footer>
   <a href="../../">AnimaSync</a> &mdash; Built by <a href="https://goodganglabs.com" target="_blank" rel="noopener noreferrer">GoodGang Labs</a>
 </footer>
+
+<!-- Source Code Modal -->
+<div class="source-modal-overlay" id="source-modal">
+  <div class="source-modal">
+    <div class="source-modal-header">
+      <span class="source-title">animasync-demo.html</span>
+      <div class="source-modal-actions">
+        <button id="btn-source-copy">Copy</button>
+        <button id="btn-source-download">Download</button>
+        <button id="btn-source-close">Close</button>
+      </div>
+    </div>
+    <div class="source-modal-body">
+      <pre><code id="source-code"></code></pre>
+    </div>
+  </div>
+</div>
 
 <!-- ═══════════════════════════════════════════════════════
      SCRIPT — Interactive sandbox logic
@@ -1279,6 +1346,544 @@ function render() {
   renderer.render(scene, camera);
 }
 render();
+
+// ════════════════════════════════════════
+// Source Code Modal
+// ════════════════════════════════════════
+const sourceModal   = $('source-modal');
+const sourceCode    = $('source-code');
+const btnSource     = $('btn-source');
+const btnSrcCopy    = $('btn-source-copy');
+const btnSrcDl      = $('btn-source-download');
+const btnSrcClose   = $('btn-source-close');
+
+function getStandaloneHTML() {
+  const SC = '<' + '/script>';   // script close tag (avoids breaking outer script)
+  const BT = String.fromCharCode(96); // backtick
+  const DL = '$';                // dollar sign for template interpolation
+  return [
+    '<!DOCTYPE html>',
+    '<html lang="en">',
+    '<head>',
+    '  <meta charset="UTF-8">',
+    '  <meta name="viewport" content="width=device-width, initial-scale=1.0">',
+    '  <title>AnimaSync Demo \u2014 Voice-Driven 3D Avatar</title>',
+    '',
+    '  <!-- Import Map: CDN modules (no bundler needed) -->',
+    '  <script type="importmap">',
+    '  { "imports": {',
+    '    "three": "https://cdn.jsdelivr.net/npm/three@0.179.1/build/three.module.js",',
+    '    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.179.1/examples/jsm/",',
+    '    "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.4.5/lib/three-vrm.module.min.js",',
+    '    "@pixiv/three-vrm-animation": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm-animation@3.4.5/lib/three-vrm-animation.module.min.js"',
+    '  }}',
+    '  ' + SC,
+    '',
+    '  <!-- ONNX Runtime (required by AnimaSync WASM) -->',
+    '  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/ort.min.js">' + SC,
+    '',
+    '  <style>',
+    '    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }',
+    '    body {',
+    '      font-family: system-ui, -apple-system, sans-serif;',
+    '      background: #0f0f1a; color: #e2e8f0; min-height: 100vh;',
+    '      display: flex; flex-direction: column; align-items: center;',
+    '    }',
+    '    h1 { font-size: 1.2rem; padding: 20px; text-align: center; }',
+    '    h1 span { color: #4cc9f0; }',
+    '    .canvas-wrap {',
+    '      position: relative; width: 100%; max-width: 800px; aspect-ratio: 16/10;',
+    '      background: #0f0f1a; border-radius: 8px; overflow: hidden;',
+    '      border: 1px solid rgba(76,201,240,0.15);',
+    '    }',
+    '    .canvas-wrap canvas { width: 100%; height: 100%; display: block; }',
+    '    .drop-overlay {',
+    '      position: absolute; inset: 0;',
+    '      display: flex; flex-direction: column; align-items: center; justify-content: center;',
+    '      gap: 8px; font-size: 0.85rem; color: #475569;',
+    '      border: 2px dashed rgba(76,201,240,0.2); border-radius: 8px;',
+    '      cursor: pointer; transition: all 0.2s;',
+    '    }',
+    '    .drop-overlay:hover { border-color: #4cc9f0; background: rgba(76,201,240,0.04); }',
+    '    .drop-overlay.hidden { display: none; }',
+    '    .controls {',
+    '      display: flex; flex-wrap: wrap; gap: 8px; padding: 16px;',
+    '      max-width: 800px; width: 100%; justify-content: center;',
+    '    }',
+    '    .btn {',
+    '      display: inline-flex; align-items: center; gap: 6px;',
+    '      padding: 8px 16px; border-radius: 8px; border: none;',
+    '      font-size: 0.82rem; font-weight: 600; cursor: pointer;',
+    '      font-family: inherit; transition: all 0.15s;',
+    '    }',
+    '    .btn-primary { background: #4cc9f0; color: #0f0f1a; }',
+    '    .btn-primary:hover { background: #7dd8f5; }',
+    '    .btn-primary:disabled { opacity: 0.3; cursor: not-allowed; }',
+    '    .btn-secondary {',
+    '      background: rgba(76,201,240,0.08); color: #4cc9f0;',
+    '      border: 1px solid rgba(76,201,240,0.15);',
+    '    }',
+    '    .btn-secondary:hover { background: rgba(76,201,240,0.15); }',
+    '    .btn-secondary:disabled { opacity: 0.3; cursor: not-allowed; }',
+    '    .btn-secondary.active { border-color: #4cc9f0; background: rgba(76,201,240,0.15); }',
+    '    .status-badge {',
+    '      display: inline-block; padding: 3px 10px; border-radius: 20px;',
+    '      font-size: 0.68rem; font-weight: 600;',
+    '    }',
+    '    .badge-waiting { background: rgba(100,100,100,0.15); color: #64748b; }',
+    '    .badge-ready { background: rgba(16,185,129,0.12); color: #10b981; }',
+    '    .status-bar {',
+    '      font-size: 0.75rem; color: #64748b; padding: 8px 16px;',
+    '      max-width: 800px; width: 100%; text-align: center;',
+    '    }',
+    '  </style>',
+    '</head>',
+    '<body>',
+    '',
+    '<h1>AnimaSync <span>Demo</span></h1>',
+    '',
+    '<div style="display:flex;gap:8px;padding:8px;justify-content:center">',
+    '  <span class="status-badge badge-waiting" id="init-badge">Not initialized</span>',
+    '  <span class="status-badge badge-waiting" id="vrm-badge" style="display:none"></span>',
+    '</div>',
+    '',
+    '<div class="canvas-wrap" id="canvas-wrap">',
+    '  <canvas id="avatar-canvas"></canvas>',
+    '  <div class="drop-overlay" id="vrm-drop">',
+    '    <span style="font-size:1.8rem">\ud83d\udce6</span>',
+    '    <span>Drop a <strong>.vrm</strong> file here</span>',
+    '  </div>',
+    '</div>',
+    '',
+    '<div class="controls">',
+    '  <button class="btn btn-primary" id="btn-init">Initialize V1 Engine</button>',
+    '  <button class="btn btn-secondary" id="btn-vrm">Upload VRM</button>',
+    '  <input type="file" id="vrm-input" accept=".vrm" style="display:none">',
+    '  <button class="btn btn-secondary" id="btn-audio" disabled>Upload Audio</button>',
+    '  <input type="file" id="audio-input" accept="audio/*" style="display:none">',
+    '  <button class="btn btn-secondary" id="btn-audio-stop" disabled style="display:none">Stop</button>',
+    '  <button class="btn btn-secondary" id="btn-mic" disabled>Start Mic</button>',
+    '</div>',
+    '',
+    '<div class="status-bar" id="status">Click "Initialize V1 Engine" to start.</div>',
+    '',
+    '<script type="module">',
+    'import * as THREE from ' + "'three'" + ';',
+    'import { OrbitControls } from ' + "'three/addons/controls/OrbitControls.js'" + ';',
+    'import { GLTFLoader } from ' + "'three/addons/loaders/GLTFLoader.js'" + ';',
+    'import { VRMLoaderPlugin } from ' + "'@pixiv/three-vrm'" + ';',
+    'import { VRMAnimationLoaderPlugin, createVRMAnimationClip } from ' + "'@pixiv/three-vrm-animation'" + ';',
+    '',
+    '// \u2500\u2500 Config \u2500\u2500',
+    "const VERSION = '" + VERSION + "';",
+    'const CDN = ' + BT + 'https://cdn.jsdelivr.net/npm/@goodganglabs/lipsync-wasm-v1@' + DL + '{VERSION}' + BT + ';',
+    '',
+    '// ARKit 52-dim blendshape names',
+    "const ARKIT_52 = [",
+    "  'browDownLeft','browDownRight','browInnerUp','browOuterUpLeft','browOuterUpRight',",
+    "  'cheekPuff','cheekSquintLeft','cheekSquintRight',",
+    "  'eyeBlinkLeft','eyeBlinkRight','eyeLookDownLeft','eyeLookDownRight',",
+    "  'eyeLookInLeft','eyeLookInRight','eyeLookOutLeft','eyeLookOutRight',",
+    "  'eyeLookUpLeft','eyeLookUpRight','eyeSquintLeft','eyeSquintRight',",
+    "  'eyeWideLeft','eyeWideRight',",
+    "  'jawForward','jawLeft','jawOpen','jawRight',",
+    "  'mouthClose','mouthDimpleLeft','mouthDimpleRight','mouthFrownLeft','mouthFrownRight',",
+    "  'mouthFunnel','mouthLeft','mouthLowerDownLeft','mouthLowerDownRight',",
+    "  'mouthPressLeft','mouthPressRight','mouthPucker','mouthRight',",
+    "  'mouthRollLower','mouthRollUpper','mouthShrugLower','mouthShrugUpper',",
+    "  'mouthSmileLeft','mouthSmileRight','mouthStretchLeft','mouthStretchRight',",
+    "  'mouthUpperUpLeft','mouthUpperUpRight',",
+    "  'noseSneerLeft','noseSneerRight','tongueOut',",
+    '];',
+    '',
+    '// VRM 18-dim expression names',
+    "const VRM_EXPRESSIONS = [",
+    "  'aa','ih','ou','ee','oh',",
+    "  'happy','angry','sad','relaxed','surprised',",
+    "  'blink','blinkLeft','blinkRight',",
+    "  'lookUp','lookDown','lookLeft','lookRight',",
+    "  'neutral',",
+    '];',
+    '',
+    '// \u2500\u2500 State \u2500\u2500',
+    'let lipsync = null, vrm = null, mixer = null;',
+    'let idleAction = null, speakingAction = null;',
+    'let isSpeaking = false, crossFadeProgress = 0;',
+    'const frameQueue = [];',
+    'let fileAudioCtx = null, fileAudioSrc = null;',
+    'let fileResult = null, fileStartTime = 0, filePlaying = false;',
+    'let micActive = false, micAudioCtx = null, micWorklet = null, micStream = null;',
+    'let useVrmMode = false;',
+    'let idleGenerator = null, idleClock = 0;',
+    'let prevFrame = null;',
+    '',
+    '// \u2500\u2500 DOM \u2500\u2500',
+    "const el = id => document.getElementById(id);",
+    "const btnInit    = el('btn-init');",
+    "const btnVrm     = el('btn-vrm');",
+    "const vrmInput   = el('vrm-input');",
+    "const vrmDrop    = el('vrm-drop');",
+    "const btnAudio   = el('btn-audio');",
+    "const audioInput = el('audio-input');",
+    "const btnAudioStop = el('btn-audio-stop');",
+    "const btnMic     = el('btn-mic');",
+    "const initBadge  = el('init-badge');",
+    "const vrmBadge   = el('vrm-badge');",
+    "const statusEl   = el('status');",
+    '',
+    'function setStatus(msg) { statusEl.textContent = msg; }',
+    '',
+    '// \u2500\u2500 Three.js Scene \u2500\u2500',
+    "const canvas = el('avatar-canvas');",
+    'const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });',
+    'renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));',
+    'renderer.outputColorSpace = THREE.SRGBColorSpace;',
+    'const scene = new THREE.Scene();',
+    'scene.background = new THREE.Color(0x0f0f1a);',
+    'const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);',
+    'camera.position.set(0, 1.25, 1.5);',
+    'const controls = new OrbitControls(camera, canvas);',
+    'controls.target.set(0, 1.25, 0);',
+    'controls.enableDamping = true;',
+    'controls.update();',
+    'scene.add(new THREE.DirectionalLight(0xffffff, 1.0));',
+    'scene.add(new THREE.AmbientLight(0xffffff, 0.6));',
+    '',
+    'function resizeCanvas() {',
+    "  const wrap = el('canvas-wrap');",
+    '  const w = wrap.clientWidth, h = wrap.clientHeight;',
+    '  if (w > 0 && h > 0) {',
+    '    renderer.setSize(w, h);',
+    '    camera.aspect = w / h;',
+    '    camera.updateProjectionMatrix();',
+    '  }',
+    '}',
+    "new ResizeObserver(resizeCanvas).observe(el('canvas-wrap'));",
+    'resizeCanvas();',
+    '',
+    '// \u2500\u2500 GLTF Loader \u2500\u2500',
+    'const gltfLoader = new GLTFLoader();',
+    'gltfLoader.register(p => new VRMLoaderPlugin(p));',
+    'gltfLoader.register(p => new VRMAnimationLoaderPlugin(p));',
+    '',
+    'async function loadVRMAFromBytes(bytes) {',
+    "  const blob = new Blob([bytes], { type: 'application/octet-stream' });",
+    '  const url = URL.createObjectURL(blob);',
+    '  const gltf = await gltfLoader.loadAsync(url);',
+    '  URL.revokeObjectURL(url);',
+    '  return gltf.userData.vrmAnimations?.[0] || null;',
+    '}',
+    '',
+    '// \u2500\u2500 Load VRM Avatar \u2500\u2500',
+    'async function loadVRM(fileUrl) {',
+    '  if (vrm) scene.remove(vrm.scene);',
+    '  const gltf = await gltfLoader.loadAsync(fileUrl);',
+    '  vrm = gltf.userData.vrm;',
+    '  scene.add(vrm.scene);',
+    '  vrm.scene.rotation.y = Math.PI;',
+    '  mixer = new THREE.AnimationMixer(vrm.scene);',
+    '  idleAction = null; speakingAction = null;',
+    '',
+    '  // Load VRMA bone animations (idle/speaking crossfade)',
+    '  if (lipsync?.ready) {',
+    '    try {',
+    '      const vrmaBytes = lipsync.getVrmaBytes();',
+    '      if (vrmaBytes?.idle?.length) {',
+    '        const a = await loadVRMAFromBytes(vrmaBytes.idle);',
+    '        if (a) { idleAction = mixer.clipAction(createVRMAnimationClip(a, vrm)); idleAction.play(); }',
+    '      }',
+    '      if (vrmaBytes?.speaking?.length) {',
+    '        const a = await loadVRMAFromBytes(vrmaBytes.speaking);',
+    '        if (a) { speakingAction = mixer.clipAction(createVRMAnimationClip(a, vrm)); speakingAction.play(); speakingAction.setEffectiveWeight(0); }',
+    '      }',
+    "    } catch (e) { console.warn('VRMA skip:', e.message); }",
+    '  }',
+    '',
+    '  // Auto-detect VRM expression mode (ARKit 52-dim vs VRM 18-dim)',
+    '  useVrmMode = false;',
+    '  if (vrm.expressionManager) {',
+    '    const exprNames = Object.keys(vrm.expressionManager.expressionMap || {});',
+    "    const arkitNames = ['jawOpen','mouthFunnel','mouthPucker','eyeBlinkLeft','eyeBlinkRight'];",
+    '    const hasArkit = arkitNames.filter(n => exprNames.includes(n)).length >= 3;',
+    "    const vrmNames = ['aa','ih','ou','ee','oh','happy','angry','sad','relaxed','surprised'];",
+    '    const hasVrm = vrmNames.filter(n => exprNames.includes(n)).length >= 3;',
+    '    if (!hasArkit && hasVrm) useVrmMode = true;',
+    '  }',
+    '',
+    "  vrmBadge.textContent = 'VRM loaded (' + (useVrmMode ? 'VRM' : 'ARKit') + ')';",
+    "  vrmBadge.className = 'status-badge badge-ready';",
+    "  vrmBadge.style.display = '';",
+    "  vrmDrop.classList.add('hidden');",
+    "  setStatus('VRM loaded. Ready to animate.');",
+    '  updateControls();',
+    '}',
+    '',
+    '// \u2500\u2500 Initialize AnimaSync V1 \u2500\u2500',
+    "btnInit.addEventListener('click', async () => {",
+    '  if (lipsync?.ready) return;',
+    '  btnInit.disabled = true;',
+    "  btnInit.textContent = 'Initializing...';",
+    "  setStatus('Loading WASM + ONNX model...');",
+    '',
+    '  try {',
+    '    const { LipSyncWasmWrapper } = await import(' + BT + DL + '{CDN}/lipsync-wasm-wrapper.js' + BT + ');',
+    '    lipsync = new LipSyncWasmWrapper({ wasmPath: ' + BT + DL + '{CDN}/lipsync_wasm_v1.js' + BT + ' });',
+    '    await lipsync.init({',
+    '      onProgress: (stage, pct) => setStatus(' + BT + DL + '{stage} \\u2014 ' + DL + '{pct}%' + BT + '),',
+    '    });',
+    '',
+    '    // Eye blink + micro expressions',
+    '    try {',
+    '      idleGenerator = new lipsync.wasmModule.IdleExpressionGenerator();',
+    '      idleClock = 0;',
+    "    } catch (e) { console.warn('Idle generator init failed:', e); }",
+    '',
+    "    initBadge.textContent = 'V1 Ready';",
+    "    initBadge.className = 'status-badge badge-ready';",
+    "    btnInit.textContent = 'Initialized';",
+    "    setStatus('Engine ready. Upload a VRM to continue.');",
+    '    updateControls();',
+    '  } catch (err) {',
+    '    lipsync = null;',
+    "    initBadge.textContent = 'Error';",
+    "    btnInit.textContent = 'Retry';",
+    '    btnInit.disabled = false;',
+    "    setStatus('Init error: ' + err.message);",
+    '  }',
+    '});',
+    '',
+    '// \u2500\u2500 VRM Upload \u2500\u2500',
+    'async function handleVRMFile(file) {',
+    "  if (!file?.name.endsWith('.vrm')) return;",
+    "  setStatus('Loading VRM...');",
+    '  const url = URL.createObjectURL(file);',
+    "  try { await loadVRM(url); } catch (e) { setStatus('Error: ' + e.message); }",
+    '  finally { URL.revokeObjectURL(url); }',
+    '}',
+    "btnVrm.addEventListener('click', () => vrmInput.click());",
+    "vrmInput.addEventListener('change', e => { if (e.target.files[0]) handleVRMFile(e.target.files[0]); });",
+    "vrmDrop.addEventListener('click', () => vrmInput.click());",
+    "const canvasWrap = el('canvas-wrap');",
+    "canvasWrap.addEventListener('dragover', e => { e.preventDefault(); vrmDrop.classList.add('dragover'); });",
+    "canvasWrap.addEventListener('dragleave', () => vrmDrop.classList.remove('dragover'));",
+    "canvasWrap.addEventListener('drop', e => {",
+    "  e.preventDefault(); vrmDrop.classList.remove('dragover');",
+    "  const file = [...e.dataTransfer.files].find(f => f.name.endsWith('.vrm'));",
+    '  if (file) handleVRMFile(file);',
+    '});',
+    '',
+    '// \u2500\u2500 Audio File Playback \u2500\u2500',
+    'function stopAudio() {',
+    '  filePlaying = false; fileResult = null;',
+    '  if (fileAudioSrc) { try { fileAudioSrc.stop(); } catch {} fileAudioSrc = null; }',
+    '  if (fileAudioCtx) { fileAudioCtx.close(); fileAudioCtx = null; }',
+    '  frameQueue.length = 0;',
+    '  transitionToIdle(); resetVRM();',
+    '  if (idleGenerator) { idleGenerator.reset(); idleClock = 0; }',
+    "  btnAudioStop.style.display = 'none'; btnAudioStop.disabled = true;",
+    '}',
+    '',
+    "btnAudio.addEventListener('click', () => audioInput.click());",
+    "audioInput.addEventListener('change', e => { if (e.target.files[0]) processAudioFile(e.target.files[0]); });",
+    "btnAudioStop.addEventListener('click', () => { stopAudio(); setStatus('Audio stopped.'); });",
+    '',
+    'async function processAudioFile(file) {',
+    '  if (!lipsync?.ready || !vrm) return;',
+    '  stopAudio();',
+    "  setStatus('Processing audio...');",
+    '  try {',
+    '    const result = await lipsync.processFile(file);',
+    '    fileAudioCtx = new AudioContext();',
+    '    const buf = await file.arrayBuffer();',
+    '    const audioBuf = await fileAudioCtx.decodeAudioData(buf);',
+    '    fileAudioSrc = fileAudioCtx.createBufferSource();',
+    '    fileAudioSrc.buffer = audioBuf;',
+    '    fileAudioSrc.connect(fileAudioCtx.destination);',
+    '    fileResult = result;',
+    '    fileStartTime = fileAudioCtx.currentTime;',
+    '    filePlaying = true; prevFrame = null;',
+    '    fileAudioSrc.start();',
+    '    transitionToSpeaking();',
+    "    fileAudioSrc.onended = () => { stopAudio(); setStatus('Playback finished.'); };",
+    "    btnAudioStop.style.display = ''; btnAudioStop.disabled = false;",
+    "    setStatus('Playing \\u2014 ' + result.frame_count + ' frames @ 30fps');",
+    "  } catch (err) { setStatus('Audio error: ' + err.message); }",
+    '}',
+    '',
+    '// \u2500\u2500 Microphone Streaming (AudioWorklet) \u2500\u2500',
+    "btnMic.addEventListener('click', async () => {",
+    '  if (micActive) { stopMic(); return; }',
+    '  if (!lipsync?.ready || !vrm) return;',
+    '  stopAudio();',
+    '  try {',
+    '    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });',
+    '    micStream = stream;',
+    '    micAudioCtx = new AudioContext({ sampleRate: 16000 });',
+    '    const source = micAudioCtx.createMediaStreamSource(stream);',
+    '    const code = ' + BT + "class P extends AudioWorkletProcessor{constructor(){super();this._b=[];}process(i){const c=i[0]?.[0];if(c){for(let j=0;j<c.length;j++)this._b.push(c[j]);if(this._b.length>=1600){this.port.postMessage(new Float32Array(this._b.splice(0,1600)));}}return true;}}registerProcessor('pcm-cap',P);" + BT + ';',
+    "    const blob = new Blob([code], { type: 'application/javascript' });",
+    '    const burl = URL.createObjectURL(blob);',
+    '    await micAudioCtx.audioWorklet.addModule(burl);',
+    '    URL.revokeObjectURL(burl);',
+    "    micWorklet = new AudioWorkletNode(micAudioCtx, 'pcm-cap');",
+    '    source.connect(micWorklet);',
+    '    transitionToSpeaking();',
+    '    micWorklet.port.onmessage = async e => {',
+    '      const result = await lipsync.processAudioChunk(e.data);',
+    '      if (result) for (let i = 0; i < result.frame_count; i++) {',
+    '        frameQueue.push({ arkit: lipsync.getFrame(result, i), vrm: lipsync.getVrmFrame(result, i) });',
+    '      }',
+    '    };',
+    '    micActive = true;',
+    "    btnMic.textContent = 'Stop Mic';",
+    "    btnMic.classList.add('active');",
+    "    setStatus('Microphone streaming \\u2014 speak now...');",
+    "  } catch (err) { setStatus('Mic error: ' + err.message); }",
+    '});',
+    '',
+    'function stopMic() {',
+    '  if (micWorklet) { micWorklet.disconnect(); micWorklet = null; }',
+    '  if (micAudioCtx) { micAudioCtx.close(); micAudioCtx = null; }',
+    '  if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }',
+    '  micActive = false;',
+    "  btnMic.textContent = 'Start Mic';",
+    "  btnMic.classList.remove('active');",
+    '  transitionToIdle();',
+    '  if (lipsync) lipsync.reset();',
+    '  if (idleGenerator) { idleGenerator.reset(); idleClock = 0; }',
+    "  setStatus('Microphone stopped.');",
+    '}',
+    '',
+    '// \u2500\u2500 Blendshape Helpers \u2500\u2500',
+    'function applyArkitBlendshapes(frame) {',
+    '  if (!vrm?.expressionManager) return;',
+    '  for (let i = 0; i < Math.min(frame.length, ARKIT_52.length); i++)',
+    '    vrm.expressionManager.setValue(ARKIT_52[i], frame[i]);',
+    '}',
+    'function applyVrmBlendshapes(vrmFrame) {',
+    '  if (!vrm?.expressionManager || !vrmFrame) return;',
+    '  for (let i = 0; i < VRM_EXPRESSIONS.length; i++)',
+    '    vrm.expressionManager.setValue(VRM_EXPRESSIONS[i], vrmFrame[i] || 0);',
+    '}',
+    'function applyFrame(arkitFrame, vrmFrame) {',
+    '  if (useVrmMode) applyVrmBlendshapes(vrmFrame);',
+    '  else applyArkitBlendshapes(arkitFrame);',
+    '  prevFrame = arkitFrame;',
+    '}',
+    'function resetVRM() {',
+    '  if (!vrm?.expressionManager) return;',
+    '  const names = useVrmMode ? VRM_EXPRESSIONS : ARKIT_52;',
+    '  for (const n of names) vrm.expressionManager.setValue(n, 0);',
+    '  prevFrame = null;',
+    '}',
+    'function transitionToSpeaking() { isSpeaking = true; crossFadeProgress = 1; }',
+    'function transitionToIdle() { isSpeaking = false; }',
+    'function updateBoneWeights(dt) {',
+    '  const speed = 3.0;',
+    '  if (isSpeaking && crossFadeProgress < 1) crossFadeProgress = Math.min(1, crossFadeProgress + dt * speed);',
+    '  else if (!isSpeaking && crossFadeProgress > 0) crossFadeProgress = Math.max(0, crossFadeProgress - dt * speed);',
+    '  const w = crossFadeProgress * crossFadeProgress * (3 - 2 * crossFadeProgress);',
+    '  if (idleAction) idleAction.setEffectiveWeight(1 - w);',
+    '  if (speakingAction) speakingAction.setEffectiveWeight(w);',
+    '}',
+    'function updateControls() {',
+    '  const canAnimate = lipsync?.ready && !!vrm;',
+    '  btnAudio.disabled = !canAnimate;',
+    '  btnMic.disabled = !canAnimate;',
+    '}',
+    '',
+    '// \u2500\u2500 Render Loop \u2500\u2500',
+    'const clock = new THREE.Clock();',
+    'let streamTimer = 0;',
+    'const FRAME_INTERVAL = 1 / 30;',
+    '',
+    'function render() {',
+    '  requestAnimationFrame(render);',
+    '  const dt = clock.getDelta();',
+    '',
+    '  // File playback: time-synced (AudioContext.currentTime)',
+    '  if (filePlaying && fileResult && fileAudioCtx) {',
+    '    const elapsed = fileAudioCtx.currentTime - fileStartTime;',
+    '    const fps = fileResult.fps || 30;',
+    '    const idx = Math.min(Math.floor(elapsed * fps), fileResult.frame_count - 1);',
+    '    if (idx >= 0) applyFrame(lipsync.getFrame(fileResult, idx), lipsync.getVrmFrame(fileResult, idx));',
+    '  }',
+    '  // Mic streaming: queue-based at 30fps',
+    '  else if (frameQueue.length > 0) {',
+    '    streamTimer += Math.min(dt, FRAME_INTERVAL * 2);',
+    '    while (streamTimer >= FRAME_INTERVAL && frameQueue.length > 0) {',
+    '      streamTimer -= FRAME_INTERVAL;',
+    '      const item = frameQueue.shift();',
+    '      applyFrame(item.arkit, item.vrm);',
+    '    }',
+    '  } else { streamTimer = 0; }',
+    '',
+    '  // Idle expressions (eye blink + micro)',
+    '  if (!micActive && !filePlaying && frameQueue.length === 0 && idleGenerator && vrm) {',
+    '    idleClock += dt;',
+    '    const rawIdle = idleGenerator.get_frame(idleClock);',
+    '    let idleFrame = rawIdle;',
+    '    if (prevFrame) {',
+    '      const alpha = 0.15;',
+    '      idleFrame = new Array(rawIdle.length);',
+    '      let maxDiff = 0;',
+    '      for (let i = 0; i < rawIdle.length; i++) {',
+    '        idleFrame[i] = prevFrame[i] + alpha * ((rawIdle[i] || 0) - prevFrame[i]);',
+    '        const d = Math.abs(idleFrame[i] - (rawIdle[i] || 0));',
+    '        if (d > maxDiff) maxDiff = d;',
+    '      }',
+    '      prevFrame = idleFrame;',
+    '      if (maxDiff < 0.005) prevFrame = null;',
+    '    }',
+    '    if (useVrmMode && lipsync?.wasmModule?.convert_arkit_to_vrm) {',
+    '      applyVrmBlendshapes(lipsync.wasmModule.convert_arkit_to_vrm(idleFrame));',
+    '    } else { applyArkitBlendshapes(idleFrame); }',
+    '  }',
+    '',
+    '  updateBoneWeights(dt);',
+    '  if (vrm) vrm.update(dt);',
+    '  if (mixer) mixer.update(dt);',
+    '  controls.update();',
+    '  renderer.render(scene, camera);',
+    '}',
+    'render();',
+    SC,
+    '</body>',
+    '</html>',
+  ].join('\n');
+}
+
+// Open modal
+btnSource.addEventListener('click', () => {
+  sourceCode.textContent = getStandaloneHTML();
+  sourceModal.classList.add('open');
+});
+
+// Close modal
+function closeSourceModal() { sourceModal.classList.remove('open'); }
+btnSrcClose.addEventListener('click', closeSourceModal);
+sourceModal.addEventListener('click', e => { if (e.target === sourceModal) closeSourceModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && sourceModal.classList.contains('open')) closeSourceModal(); });
+
+// Copy
+btnSrcCopy.addEventListener('click', () => {
+  navigator.clipboard.writeText(getStandaloneHTML()).then(() => {
+    btnSrcCopy.textContent = 'Copied!';
+    btnSrcCopy.classList.add('copied');
+    setTimeout(() => { btnSrcCopy.textContent = 'Copy'; btnSrcCopy.classList.remove('copied'); }, 1500);
+  });
+});
+
+// Download
+btnSrcDl.addEventListener('click', () => {
+  const blob = new Blob([getStandaloneHTML()], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'animasync-demo.html';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
 </script>
 <!--email_on-->
 </body>

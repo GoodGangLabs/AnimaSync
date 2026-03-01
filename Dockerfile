@@ -15,6 +15,7 @@ COPY sitemap.xml /usr/share/nginx/html/
 COPY llms.txt /usr/share/nginx/html/
 COPY llms-full.txt /usr/share/nginx/html/
 COPY humans.txt /usr/share/nginx/html/
+COPY agents.json /usr/share/nginx/html/
 COPY .well-known/ /usr/share/nginx/html/.well-known/
 
 # Prepare cache dirs for non-root and switch user

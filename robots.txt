@@ -42,3 +42,6 @@ Allow: /
 # Sitemap & AI discovery
 Sitemap: https://animasync.quasar.ggls.dev/sitemap.xml
 LLMs-Txt: https://animasync.quasar.ggls.dev/llms.txt
+Agents-Json: https://animasync.quasar.ggls.dev/agents.json
+A2A-Agent-Card: https://animasync.quasar.ggls.dev/.well-known/agent-card.json
+AI-Catalog: https://animasync.quasar.ggls.dev/.well-known/ai-catalog.json

@@ -1,0 +1,166 @@
+{
+  "version": "0.1.0",
+  "name": "AnimaSync",
+  "description": "Voice-driven 3D avatar animation engine. Generates lip sync, facial expressions, and body motion from audio — entirely client-side via Rust/WASM + ONNX.",
+  "url": "https://animasync.quasar.ggls.dev/",
+  "provider": {
+    "name": "GoodGang Labs",
+    "url": "https://goodganglabs.com"
+  },
+  "documentation": {
+    "summary": "https://animasync.quasar.ggls.dev/llms.txt",
+    "full": "https://animasync.quasar.ggls.dev/llms-full.txt",
+    "guide": "https://animasync.quasar.ggls.dev/examples/guide/"
+  },
+  "install": {
+    "npm_v2": "npm install @goodganglabs/lipsync-wasm-v2",
+    "npm_v1": "npm install @goodganglabs/lipsync-wasm-v1",
+    "peer_dependency": "onnxruntime-web >= 1.17.0",
+    "cdn": {
+      "onnxruntime": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/ort.min.js",
+      "v2_wrapper": "https://cdn.jsdelivr.net/npm/@goodganglabs/lipsync-wasm-v2@latest/lipsync-wasm-wrapper.js",
+      "v2_wasm": "https://cdn.jsdelivr.net/npm/@goodganglabs/lipsync-wasm-v2@latest/lipsync_wasm_v2.js",
+      "v1_wrapper": "https://cdn.jsdelivr.net/npm/@goodganglabs/lipsync-wasm-v1@latest/lipsync-wasm-wrapper.js",
+      "v1_wasm": "https://cdn.jsdelivr.net/npm/@goodganglabs/lipsync-wasm-v1@latest/lipsync_wasm_v1.js"
+    }
+  },
+  "flows": [
+    {
+      "id": "quick-start-v2",
+      "name": "Quick Start with V2 Engine",
+      "description": "Install AnimaSync V2, initialize the engine, and process an audio file to get 52 ARKit blendshape animation frames at 30fps.",
+      "agent_instructions": "Use this flow when a developer wants to add lip sync animation to a web app. V2 is recommended for most use cases — simpler integration, direct 52-dim prediction.",
+      "steps": [
+        {
+          "action": "install",
+          "command": "npm install @goodganglabs/lipsync-wasm-v2 onnxruntime-web",
+          "description": "Install AnimaSync V2 and ONNX Runtime Web peer dependency"
+        },
+        {
+          "action": "import",
+          "code": "import { LipSyncWasmWrapper } from '@goodganglabs/lipsync-wasm-v2';",
+          "description": "Import the LipSyncWasmWrapper class"
+        },
+        {
+          "action": "initialize",
+          "code": "const lipsync = new LipSyncWasmWrapper();\nawait lipsync.init();",
+          "description": "Create instance and initialize. Free 30-day trial, no key needed."
+        },
+        {
+          "action": "process",
+          "code": "const result = await lipsync.processFile(audioFile);\nfor (let i = 0; i < result.frame_count; i++) {\n  const frame = lipsync.getFrame(result, i); // number[52]\n  applyToAvatar(frame);\n}",
+          "description": "Process audio file and iterate over 52-dim blendshape frames at 30fps"
+        }
+      ]
+    },
+    {
+      "id": "quick-start-v1",
+      "name": "Quick Start with V1 Engine",
+      "description": "Install AnimaSync V1, initialize, and process audio with full 111-dim expression control. Includes IdleExpressionGenerator and VoiceActivityDetector.",
+      "agent_instructions": "Use V1 when the developer needs full expression control (111 dimensions), built-in idle expressions, or voice activity detection. V1 also supports VRM 18-dim mode via getVrmFrame().",
+      "steps": [
+        {
+          "action": "install",
+          "command": "npm install @goodganglabs/lipsync-wasm-v1 onnxruntime-web",
+          "description": "Install AnimaSync V1 and ONNX Runtime Web peer dependency"
+        },
+        {
+          "action": "import",
+          "code": "import { LipSyncWasmWrapper } from '@goodganglabs/lipsync-wasm-v1';",
+          "description": "Import the LipSyncWasmWrapper class"
+        },
+        {
+          "action": "initialize",
+          "code": "const lipsync = new LipSyncWasmWrapper();\nawait lipsync.init();",
+          "description": "Create instance and initialize"
+        },
+        {
+          "action": "process",
+          "code": "const result = await lipsync.processFile(audioFile);\nfor (let i = 0; i < result.frame_count; i++) {\n  const frame = lipsync.getVrmFrame(result, i); // number[18] for VRM\n  applyToAvatar(frame);\n}",
+          "description": "Process audio and use getVrmFrame() for VRM 18-dim output, or getFrame() for full 52-dim ARKit"
+        }
+      ]
+    },
+    {
+      "id": "realtime-mic-streaming",
+      "name": "Real-time Microphone Streaming",
+      "description": "Capture microphone audio via AudioWorklet and stream chunks to AnimaSync for live avatar animation with ~130-300ms latency.",
+      "agent_instructions": "Use this flow for real-time talking avatar applications. Requires AudioWorklet for mic capture at 16kHz. Feed 100ms chunks to processAudioChunk(). Call reset() between utterances.",
+      "steps": [
+        {
+          "action": "setup-audio",
+          "code": "const ctx = new AudioContext({ sampleRate: 16000 });\nconst stream = await navigator.mediaDevices.getUserMedia({ audio: true });\nconst source = ctx.createMediaStreamSource(stream);",
+          "description": "Create AudioContext at 16kHz and get microphone stream"
+        },
+        {
+          "action": "setup-worklet",
+          "code": "// AudioWorklet processor captures 1600-sample chunks (100ms at 16kHz)\nawait ctx.audioWorklet.addModule(workletProcessorUrl);\nconst worklet = new AudioWorkletNode(ctx, 'pcm-processor');",
+          "description": "Setup AudioWorklet for 100ms chunk capture"
+        },
+        {
+          "action": "stream-process",
+          "code": "worklet.port.onmessage = async (e) => {\n  const result = await lipsync.processAudioChunk(e.data);\n  if (result) {\n    for (let i = 0; i < result.frame_count; i++) {\n      frameQueue.push(lipsync.getFrame(result, i));\n    }\n  }\n};",
+          "description": "Feed audio chunks to AnimaSync and queue resulting frames"
+        },
+        {
+          "action": "render-loop",
+          "code": "function render() {\n  requestAnimationFrame(render);\n  if (frameQueue.length > 0) {\n    applyToAvatar(frameQueue.shift());\n  }\n}\nrender();",
+          "description": "Consume frames at 30fps in animation render loop"
+        }
+      ]
+    },
+    {
+      "id": "vrm-avatar-setup",
+      "name": "VRM Avatar with Three.js",
+      "description": "Load a VRM avatar model using Three.js and @pixiv/three-vrm, then connect AnimaSync for voice-driven animation.",
+      "agent_instructions": "Use this flow when building a complete VRM avatar application. Requires three.js, @pixiv/three-vrm, and optionally @pixiv/three-vrm-animation for VRMA body motion.",
+      "steps": [
+        {
+          "action": "setup-threejs",
+          "code": "import * as THREE from 'three';\nimport { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';\nimport { VRMLoaderPlugin } from '@pixiv/three-vrm';",
+          "description": "Import Three.js and VRM loader"
+        },
+        {
+          "action": "load-vrm",
+          "code": "const loader = new GLTFLoader();\nloader.register((parser) => new VRMLoaderPlugin(parser));\nconst gltf = await loader.loadAsync(vrmUrl);\nconst vrm = gltf.userData.vrm;\nscene.add(vrm.scene);",
+          "description": "Load VRM model and add to Three.js scene"
+        },
+        {
+          "action": "apply-blendshapes",
+          "code": "function applyToAvatar(frame) {\n  const names = vrm.expressionManager.expressions.map(e => e.expressionName);\n  // Detect mode: ARKit 52 names or VRM preset names\n  const isARKit = names.some(n => n.startsWith('mouth') || n.startsWith('jaw'));\n  frame.forEach((val, i) => {\n    vrm.expressionManager.setValue(blendshapeNames[i], val);\n  });\n}",
+          "description": "Apply AnimaSync blendshape frames to VRM avatar expressions"
+        }
+      ]
+    },
+    {
+      "id": "cdn-no-bundler",
+      "name": "CDN Setup (No Bundler)",
+      "description": "Use AnimaSync directly from CDN via import maps — no npm or bundler required. Perfect for quick prototypes and demos.",
+      "agent_instructions": "Use this when the developer wants the simplest possible setup without npm/bundler. Just an HTML file with import maps pointing to CDN.",
+      "steps": [
+        {
+          "action": "add-onnx-script",
+          "code": "<script src=\"https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/ort.min.js\"></script>",
+          "description": "Load ONNX Runtime Web from CDN (must be loaded before AnimaSync)"
+        },
+        {
+          "action": "add-import-map",
+          "code": "<script type=\"importmap\">\n{\n  \"imports\": {\n    \"three\": \"https://cdn.jsdelivr.net/npm/three@0.179.0/build/three.module.js\",\n    \"three/addons/\": \"https://cdn.jsdelivr.net/npm/three@0.179.0/examples/jsm/\",\n    \"@pixiv/three-vrm\": \"https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.4.0/lib/three-vrm.module.min.js\"\n  }\n}\n</script>",
+          "description": "Setup import maps for Three.js and VRM dependencies"
+        },
+        {
+          "action": "init-animasync",
+          "code": "<script type=\"module\">\nconst CDN = 'https://cdn.jsdelivr.net/npm/@goodganglabs/lipsync-wasm-v2@0.4.3';\nconst { LipSyncWasmWrapper } = await import(`${CDN}/lipsync-wasm-wrapper.js`);\nconst lipsync = new LipSyncWasmWrapper({ wasmPath: `${CDN}/lipsync_wasm_v2.js` });\nawait lipsync.init();\n</script>",
+          "description": "Import and initialize AnimaSync V2 from CDN"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "technology": ["Rust", "WebAssembly", "ONNX", "Three.js", "VRM"],
+    "keywords": ["lip-sync", "avatar", "animation", "blendshape", "arkit", "vrm", "wasm", "real-time", "browser", "speech", "facial-expression", "body-motion", "onnx"],
+    "license": "MIT",
+    "pricing": "30-day free trial, then paid license",
+    "runtime": "Browser (client-side only, no server required)"
+  }
+}

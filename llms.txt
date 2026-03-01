@@ -42,6 +42,12 @@ const frame = lipsync.getFrame(result, 0); // number[52]
 - V1 vs V2 Comparison: https://animasync.quasar.ggls.dev/examples/vanilla-comparison/
 - Full Documentation: https://animasync.quasar.ggls.dev/llms-full.txt
 
+## AI Agent Discovery
+
+- Agent Card (A2A): https://animasync.quasar.ggls.dev/.well-known/agent-card.json
+- AI Catalog: https://animasync.quasar.ggls.dev/.well-known/ai-catalog.json
+- Agent Flows: https://animasync.quasar.ggls.dev/agents.json
+
 ## Licensing
 
 30-day free trial with no signup. Call `init()` without a license key.
