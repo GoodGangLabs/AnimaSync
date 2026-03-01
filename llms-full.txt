@@ -117,6 +117,10 @@ Process a chunk of streaming audio. Returns `null` if not enough data accumulate
 
 Extract a single frame from a ProcessResult. Returns an array of blendshape values (length 52 for V2, 111 for V1).
 
+#### `getVrmFrame(result: ProcessResult, index: number): number[]`
+
+Extract a VRM 18-dim frame from a ProcessResult. Converts ARKit blendshapes to VRM preset expressions (aa, ih, ou, ee, oh, happy, angry, sad, relaxed, surprised, blink, blinkLeft, blinkRight, lookUp, lookDown, lookLeft, lookRight, neutral). Use for standard VRoid Hub models that lack ARKit expression names.
+
 #### `getVrmaBytes(): { idle: Uint8Array; speaking: Uint8Array }`
 
 Get embedded VRMA bone animation clips for idle breathing and speaking gestures.
@@ -151,6 +155,7 @@ interface ProcessResult {
 | Model architecture | Student distillation (direct prediction) | Phoneme classification -> viseme mapping |
 | Post-processing | crisp_mouth + fade + auto-blink | OneEuroFilter + anatomical constraints |
 | Expression generation | Blink injection in post-process | Built-in IdleExpressionGenerator |
+| VRM mode | getFrame() only (52-dim ARKit) | getVrmFrame() + convert_arkit_to_vrm() for VRM 18-dim |
 | Voice activity | Not included | Built-in VoiceActivityDetector |
 | ONNX fallback | None (ONNX required) | Heuristic mode (energy-based) |
 | Body motion | VRMA idle/speaking | VRMA idle/speaking + VAD auto-switch |
@@ -205,6 +210,7 @@ Tongue: tongueOut
 
 | Example | Description | URL |
 |---------|-------------|-----|
+| Step-by-Step Guide | 6-step interactive tutorial: VRM + AnimaSync V1 lip sync with live demos (CDN 0.4.2, VRM mode auto-detect, idle eye blink, audio-synced playback) | https://animasync.quasar.ggls.dev/examples/guide/ |
 | V1 Data | V1 phoneme engine — 52 ARKit blendshapes visualization | https://animasync.quasar.ggls.dev/examples/vanilla-basic/ |
 | V2 Data | V2 student model — 52 ARKit direct prediction | https://animasync.quasar.ggls.dev/examples/vanilla-avatar/ |
 | V1 vs V2 | Side-by-side dual avatar comparison | https://animasync.quasar.ggls.dev/examples/vanilla-comparison/ |
