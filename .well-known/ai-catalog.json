@@ -1,0 +1,65 @@
+{
+  "version": "1.0",
+  "name": "AnimaSync",
+  "description": "Voice-driven 3D avatar animation engine for the browser. Client-side Rust/WASM + ONNX inference.",
+  "provider": {
+    "name": "GoodGang Labs",
+    "url": "https://goodganglabs.com"
+  },
+  "services": [
+    {
+      "type": "agent-card",
+      "protocol": "a2a",
+      "url": "https://animasync.quasar.ggls.dev/.well-known/agent-card.json",
+      "description": "A2A Agent Card — skills, capabilities, and metadata for agent-to-agent discovery"
+    },
+    {
+      "type": "documentation",
+      "protocol": "llms-txt",
+      "url": "https://animasync.quasar.ggls.dev/llms.txt",
+      "description": "Concise LLM-readable documentation (overview, install, links)"
+    },
+    {
+      "type": "documentation-full",
+      "protocol": "llms-txt",
+      "url": "https://animasync.quasar.ggls.dev/llms-full.txt",
+      "description": "Full LLM-readable documentation (API reference, architecture, examples, streaming)"
+    },
+    {
+      "type": "agent-actions",
+      "protocol": "agents-json",
+      "url": "https://animasync.quasar.ggls.dev/agents.json",
+      "description": "Agent action flows for integrating AnimaSync into applications"
+    },
+    {
+      "type": "security",
+      "protocol": "security-txt",
+      "url": "https://animasync.quasar.ggls.dev/.well-known/security.txt",
+      "description": "Security contact and vulnerability reporting policy"
+    },
+    {
+      "type": "sitemap",
+      "protocol": "sitemap",
+      "url": "https://animasync.quasar.ggls.dev/sitemap.xml",
+      "description": "XML sitemap for all public pages"
+    }
+  ],
+  "packages": {
+    "npm": [
+      {
+        "name": "@goodganglabs/lipsync-wasm-v2",
+        "description": "V2 engine — 52-dim ARKit blendshapes via student distillation. Recommended for most projects.",
+        "url": "https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v2"
+      },
+      {
+        "name": "@goodganglabs/lipsync-wasm-v1",
+        "description": "V1 engine — 111-dim ARKit blendshapes via phoneme classification. Full expression control.",
+        "url": "https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v1"
+      }
+    ]
+  },
+  "source": {
+    "repository": "https://github.com/goodganglabs/AnimaSync",
+    "license": "MIT"
+  }
+}

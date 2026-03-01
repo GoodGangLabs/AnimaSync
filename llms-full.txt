@@ -15,6 +15,7 @@ AnimaSync extracts emotion from speech and generates lip sync, facial expression
 7. Real-time Streaming
 8. Licensing
 9. Security
+10. AI Agent Discovery
 
 ---
 
@@ -298,12 +299,32 @@ Contact GoodGang Labs (https://goodganglabs.com) for license inquiries.
 
 ---
 
+## 10. AI Agent Discovery
+
+AnimaSync provides multiple machine-readable endpoints for AI agent integration:
+
+| Endpoint | URL | Description |
+|----------|-----|-------------|
+| Agent Card (A2A) | https://animasync.quasar.ggls.dev/.well-known/agent-card.json | A2A protocol agent card with skills, capabilities, and metadata |
+| AI Catalog | https://animasync.quasar.ggls.dev/.well-known/ai-catalog.json | Unified entry point for all AI services on the domain |
+| Agent Flows | https://animasync.quasar.ggls.dev/agents.json | Step-by-step integration flows (Quick Start, Mic Streaming, VRM Setup, CDN) |
+| LLM Summary | https://animasync.quasar.ggls.dev/llms.txt | Concise LLM-readable documentation |
+| LLM Full | https://animasync.quasar.ggls.dev/llms-full.txt | Complete LLM-readable documentation |
+
+All discovery endpoints serve CORS headers (`Access-Control-Allow-Origin: *`) for cross-origin agent access.
+
+---
+
 ## Links
 
 - Homepage: https://animasync.quasar.ggls.dev/
 - GitHub: https://github.com/goodganglabs/AnimaSync
 - npm V1: https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v1
 - npm V2: https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v2
+- Step-by-Step Guide: https://animasync.quasar.ggls.dev/examples/guide/
+- V1 Demo: https://animasync.quasar.ggls.dev/examples/vanilla-basic/
+- V2 Demo: https://animasync.quasar.ggls.dev/examples/vanilla-avatar/
+- V1 vs V2 Comparison: https://animasync.quasar.ggls.dev/examples/vanilla-comparison/
 - Security Policy: https://github.com/goodganglabs/AnimaSync/blob/main/SECURITY.md
 
 Built by GoodGang Labs (https://goodganglabs.com)

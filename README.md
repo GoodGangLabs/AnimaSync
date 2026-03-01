@@ -26,6 +26,8 @@ Extracts emotion from speech and generates lip sync, facial expressions, and bod
 &ensp;·&ensp;
 [V1 vs V2](https://animasync.quasar.ggls.dev/examples/vanilla-comparison/)
 &ensp;·&ensp;
+[Guide](https://animasync.quasar.ggls.dev/examples/guide/)
+&ensp;·&ensp;
 [npm V1](https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v1)
 &ensp;·&ensp;
 [npm V2](https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v2)
@@ -364,6 +366,21 @@ Contact [GoodGang Labs](https://goodganglabs.com) for license inquiries.
 - No separate model files are served — decryption happens at runtime
 - License tokens are **Ed25519 signed** with 24-hour TTL
 - Tokens cached in `sessionStorage` to minimize server requests
+
+---
+
+## AI Agent Discovery
+
+AnimaSync provides machine-readable endpoints for AI agent integration:
+
+| Endpoint | Path | Description |
+|----------|------|-------------|
+| **A2A Agent Card** | `/.well-known/agent-card.json` | Skills, capabilities, and metadata for agent-to-agent discovery |
+| **AI Catalog** | `/.well-known/ai-catalog.json` | Unified entry point for all AI services on the domain |
+| **Agent Flows** | `/agents.json` | Step-by-step integration flows for AI coding assistants |
+| **LLM Docs** | `/llms.txt` · `/llms-full.txt` | LLM-readable documentation (summary + full) |
+
+All endpoints serve `Access-Control-Allow-Origin: *` for cross-origin agent access.
 
 ---
 

@@ -1,0 +1,70 @@
+{
+  "protocolVersion": "0.2.5",
+  "name": "AnimaSync",
+  "description": "Voice-driven 3D avatar animation engine for the browser. Extracts emotion from speech and generates lip sync, facial expressions, and body motion in real time — entirely client-side via Rust/WASM and ONNX inference.",
+  "url": "https://animasync.quasar.ggls.dev/",
+  "version": "0.4.3",
+  "provider": {
+    "organization": "GoodGang Labs",
+    "url": "https://goodganglabs.com"
+  },
+  "documentationUrl": "https://animasync.quasar.ggls.dev/llms-full.txt",
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["application/json"],
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false
+  },
+  "skills": [
+    {
+      "id": "lip-sync-from-audio",
+      "name": "Lip Sync from Audio",
+      "description": "Generate 52 ARKit blendshape values at 30fps from audio input (file, microphone, or TTS). Maps speech phonemes to jaw, mouth, and tongue movements for 3D avatar animation.",
+      "tags": ["lip-sync", "arkit", "blendshape", "audio", "animation"],
+      "examples": [
+        "Generate lip sync animation from an audio file",
+        "Create real-time lip sync from microphone input",
+        "Produce ARKit blendshapes for VRM avatar"
+      ]
+    },
+    {
+      "id": "facial-expression-generation",
+      "name": "Facial Expression Generation",
+      "description": "Automatically generate facial expressions (brows, cheeks, eyes, smile) from voice energy and pitch. Includes stochastic eye blink injection at natural intervals.",
+      "tags": ["expression", "emotion", "face", "blink", "avatar"],
+      "examples": [
+        "Add facial expressions to avatar driven by voice",
+        "Generate eye blinks for idle avatar animation"
+      ]
+    },
+    {
+      "id": "vrm-body-motion",
+      "name": "VRM Body Motion",
+      "description": "Apply VRMA bone animation clips with idle-to-speaking crossfade. Includes breathing, gestures, and posture shifts for natural VRM avatar body motion.",
+      "tags": ["vrm", "vrma", "body-motion", "animation", "3d"],
+      "examples": [
+        "Add body motion to VRM avatar",
+        "Apply idle breathing and speaking gestures"
+      ]
+    },
+    {
+      "id": "real-time-mic-streaming",
+      "name": "Real-time Microphone Streaming",
+      "description": "Capture microphone audio via AudioWorklet at 16kHz and process chunks in real-time for live avatar animation with ~130-300ms latency.",
+      "tags": ["microphone", "streaming", "real-time", "audioworklet", "webrtc"],
+      "examples": [
+        "Stream microphone audio to animate avatar in real-time",
+        "Build a live talking avatar with mic input"
+      ]
+    }
+  ],
+  "links": {
+    "homepage": "https://animasync.quasar.ggls.dev/",
+    "github": "https://github.com/goodganglabs/AnimaSync",
+    "documentation": "https://animasync.quasar.ggls.dev/llms-full.txt",
+    "npmV2": "https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v2",
+    "npmV1": "https://www.npmjs.com/package/@goodganglabs/lipsync-wasm-v1",
+    "guide": "https://animasync.quasar.ggls.dev/examples/guide/",
+    "security": "https://github.com/goodganglabs/AnimaSync/blob/main/SECURITY.md"
+  }
+}
